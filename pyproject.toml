@@ -1,0 +1,64 @@
+[project]
+name = "llm-exp"
+version = "0.1.0"
+description = "実験用コード置き場"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.23.0",
+    "boto3>=1.38.17",
+    "google-cloud-aiplatform>=1.93.0",
+    "iam-rolesanywhere-session>=2.3.0",
+    "openai>=1.78.1",
+    "pytilpack[all]>=1.22.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+pytilpack = { git = "https://github.com/ak110/pytilpack.git" }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pyfltr]
+pyupgrade-args = ["--py313-plus"]
+pylint-args = ["--jobs=4"]
+extend-exclude = ["data"]
+
+[tool.isort]
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#isort
+# https://pycqa.github.io/isort/docs/configuration/options.html
+profile = "black"
+
+[tool.black]
+# https://black.readthedocs.io/en/stable/usage_and_configuration/the_basics.html
+target-version = ['py313']
+skip-magic-trailing-comma = true
+
+[tool.flake8]
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#flake8
+# https://flake8.pycqa.org/en/latest/user/configuration.html
+max-line-length = 128
+extend-ignore = "E203,"
+
+[tool.mypy]
+# https://mypy.readthedocs.io/en/stable/config_file.html
+allow_redefinition = true
+check_untyped_defs = true
+ignore_missing_imports = true
+strict_optional = true
+strict_equality = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_configs = true
+show_error_codes = true
+plugins = ["sqlalchemy.ext.mypy.plugin"]
+
+[tool.pytest.ini_options]
+# https://docs.pytest.org/en/latest/reference/reference.html#ini-options-ref
+addopts = "--showlocals -p no:cacheprovider"
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "session"
