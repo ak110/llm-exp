@@ -1,0 +1,34 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+default_language_version:
+  python: python3
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^data/
+      - id: mixed-line-ending
+        exclude: ^data/
+      - id: name-tests-test
+      - id: trailing-whitespace
+        exclude: ^data/
+
+  - repo: local
+    hooks:
+      - id: system
+        name: pyfltr
+        entry: uv run pyfltr --exit-zero-even-if-formatted --commands=fast
+        types: [python]
+        require_serial: true
+        language: system

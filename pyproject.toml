@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "azure-identity>=1.23.0",
     "boto3>=1.38.17",
+    "dotenv-python>=0.0.1",
     "google-cloud-aiplatform>=1.93.0",
     "iam-rolesanywhere-session>=2.3.0",
     "openai>=1.78.1",
@@ -22,6 +23,11 @@ pytilpack = { git = "https://github.com/ak110/pytilpack.git" }
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyfltr>=1.8.0",
+]
 
 [tool.pyfltr]
 pyupgrade-args = ["--py313-plus"]
