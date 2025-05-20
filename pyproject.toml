@@ -27,6 +27,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "boto3-stubs[bedrock,bedrock-runtime]>=1.38.19",
     "pyfltr>=1.8.0",
 ]
 

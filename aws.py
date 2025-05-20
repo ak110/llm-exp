@@ -24,23 +24,17 @@ import uuid
 
 import httpx
 import iam_rolesanywhere_session
-from openai._streaming import AsyncStream
+import mypy_boto3_bedrock_runtime.type_defs
+import openai._streaming
+import openai.types.chat
+import openai.types.completion_usage
+import openai.types.shared.metadata
+import openai.types.shared.reasoning_effort
 from openai._types import NOT_GIVEN, Body, Headers, NotGiven, Query
-from openai.types.chat import (
-    ChatCompletion,
-    ChatCompletionAudioParam,
-    ChatCompletionChunk,
-    ChatCompletionMessageParam,
-    ChatCompletionPredictionContentParam,
-    ChatCompletionStreamOptionsParam,
-    ChatCompletionToolChoiceOptionParam,
-    ChatCompletionToolParam,
-    completion_create_params,
-)
-from openai.types.shared.metadata import Metadata
-from openai.types.shared.reasoning_effort import ReasoningEffort
 
 import config
+
+logger = logging.getLogger(__name__)
 
 
 class AWSClient:
@@ -48,44 +42,54 @@ class AWSClient:
 
     def __init__(self) -> None:
         """初期化処理。"""
-        self.roles_anywhere_session = iam_rolesanywhere_session.IAMRolesAnywhereSession(
-            profile_arn=config.AWS_IAMRA_PROFILE_ARN,
-            role_arn=config.AWS_IAMRA_ROLE_ARN,
-            trust_anchor_arn=config.AWS_IAMRA_TRUST_ANCHOR_ARN,
-            certificate=config.AWS_IAMRA_CERTIFICATE_PATH,
-            private_key=config.AWS_IAMRA_PRIVATE_PATH,
-            region="ap-northeast-1",
-            proxies={
-                "http": os.environ.get("http_proxy"),
-                "https": os.environ.get("https_proxy"),
-            },
-        ).get_session()
-        self.bedrock_runtime = self.roles_anywhere_session.client(
-            service_name="bedrock-runtime", region_name="ap-northeast-1"
+        self.session = (
+            iam_rolesanywhere_session.IAMRolesAnywhereSession(
+                profile_arn=config.AWS_IAMRA_PROFILE_ARN,
+                role_arn=config.AWS_IAMRA_ROLE_ARN,
+                trust_anchor_arn=config.AWS_IAMRA_TRUST_ANCHOR_ARN,
+                certificate=config.AWS_IAMRA_CERTIFICATE_PATH,
+                private_key=config.AWS_IAMRA_PRIVATE_PATH,
+                region=config.AWS_IAMRA_REGION,
+                proxies={
+                    "http": os.environ.get("http_proxy"),
+                    "https": os.environ.get("https_proxy"),
+                },
+            ).get_session()
+            if config.AWS_IAMRA_CERTIFICATE_PATH.exists()
+            else None
         )
 
     async def chat_completion(
         self,
-        messages: typing.Iterable[ChatCompletionMessageParam],
+        messages: typing.Iterable[openai.types.chat.ChatCompletionMessageParam],
         model: str,
-        audio: ChatCompletionAudioParam | None | NotGiven = NOT_GIVEN,
+        audio: openai.types.chat.ChatCompletionAudioParam | None | NotGiven = NOT_GIVEN,
         frequency_penalty: float | None | NotGiven = NOT_GIVEN,
-        function_call: completion_create_params.FunctionCall | NotGiven = NOT_GIVEN,
+        function_call: (
+            openai.types.chat.completion_create_params.FunctionCall | NotGiven
+        ) = NOT_GIVEN,
         functions: (
-            typing.Iterable[completion_create_params.Function] | NotGiven
+            typing.Iterable[openai.types.chat.completion_create_params.Function]
+            | NotGiven
         ) = NOT_GIVEN,
         logit_bias: dict[str, int] | None | NotGiven = NOT_GIVEN,
         logprobs: bool | None | NotGiven = NOT_GIVEN,
         max_completion_tokens: int | None | NotGiven = NOT_GIVEN,
         max_tokens: int | None | NotGiven = NOT_GIVEN,
-        metadata: Metadata | None | NotGiven = NOT_GIVEN,
+        metadata: openai.types.shared.metadata.Metadata | None | NotGiven = NOT_GIVEN,
         modalities: list[typing.Literal["text", "audio"]] | None | NotGiven = NOT_GIVEN,
         n: int | None | NotGiven = NOT_GIVEN,
         parallel_tool_calls: bool | NotGiven = NOT_GIVEN,
-        prediction: ChatCompletionPredictionContentParam | None | NotGiven = NOT_GIVEN,
+        prediction: (
+            openai.types.chat.ChatCompletionPredictionContentParam | None | NotGiven
+        ) = NOT_GIVEN,
         presence_penalty: float | None | NotGiven = NOT_GIVEN,
-        reasoning_effort: ReasoningEffort | None | NotGiven = NOT_GIVEN,
-        response_format: completion_create_params.ResponseFormat | NotGiven = NOT_GIVEN,
+        reasoning_effort: (
+            openai.types.shared.reasoning_effort.ReasoningEffort | None | NotGiven
+        ) = NOT_GIVEN,
+        response_format: (
+            openai.types.chat.completion_create_params.ResponseFormat | NotGiven
+        ) = NOT_GIVEN,
         seed: int | None | NotGiven = NOT_GIVEN,
         service_tier: (
             typing.Literal["auto", "default", "flex"] | None | NotGiven
@@ -93,21 +97,30 @@ class AWSClient:
         stop: str | None | list[str] | None | NotGiven = NOT_GIVEN,
         store: bool | None | NotGiven = NOT_GIVEN,
         stream: typing.Literal[False] | None | NotGiven = NOT_GIVEN,
-        stream_options: ChatCompletionStreamOptionsParam | None | NotGiven = NOT_GIVEN,
+        stream_options: (
+            openai.types.chat.ChatCompletionStreamOptionsParam | None | NotGiven
+        ) = NOT_GIVEN,
         temperature: float | None | NotGiven = NOT_GIVEN,
-        tool_choice: ChatCompletionToolChoiceOptionParam | NotGiven = NOT_GIVEN,
-        tools: typing.Iterable[ChatCompletionToolParam] | NotGiven = NOT_GIVEN,
+        tool_choice: (
+            openai.types.chat.ChatCompletionToolChoiceOptionParam | NotGiven
+        ) = NOT_GIVEN,
+        tools: (
+            typing.Iterable[openai.types.chat.ChatCompletionToolParam] | NotGiven
+        ) = NOT_GIVEN,
         top_logprobs: int | None | NotGiven = NOT_GIVEN,
         top_p: float | None | NotGiven = NOT_GIVEN,
         user: str | NotGiven = NOT_GIVEN,
         web_search_options: (
-            completion_create_params.WebSearchOptions | NotGiven
+            openai.types.chat.completion_create_params.WebSearchOptions | NotGiven
         ) = NOT_GIVEN,
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
-    ) -> ChatCompletion | AsyncStream[ChatCompletionChunk]:
+    ) -> (
+        openai.types.chat.ChatCompletion
+        | openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk]
+    ):
         """OpenAIのChat Completions APIを使用してチャット応答を生成します。
 
         Returns:
@@ -123,6 +136,8 @@ class AWSClient:
         # メッセージをBedrockの形式に変換
         formatted_messages = []
         for message in messages:
+            if message["role"] not in ("user", "assistant"):
+                continue
             formatted_message = {"role": message["role"]}
             if isinstance(message["content"], list):
                 formatted_message["content"] = message["content"]
@@ -155,32 +170,37 @@ class AWSClient:
             inference_config["topP"] = top_p
 
         # Converse APIを呼び出し
+        bedrock = self.session.client(
+            service_name="bedrock-runtime", region_name="ap-northeast-1"
+        )
         if stream:
-            response = self.bedrock_runtime.converse_stream(
+            response = bedrock.converse_stream(
                 modelId=model,
                 messages=formatted_messages,
                 system=system,
                 inferenceConfig=inference_config,
-                additionalmodelRequestFields={},
-                guardrailConfig={},
+                additionalModelRequestFields={},
+                # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
                 # toolConfig={"toolChoice": {...}, "tools": [{...}]},
             )
             return await self._process_streaming_response(response, model)
         else:
-            response = self.bedrock_runtime.converse(
+            response = bedrock.converse(
                 modelId=model,
                 messages=formatted_messages,
                 system=system,
                 inferenceConfig=inference_config,
-                additionalmodelRequestFields={},
-                guardrailConfig={},
+                additionalModelRequestFields={},
+                # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
                 # toolConfig={"toolChoice": {...}, "tools": [{...}]},
             )
             return await self._process_non_streaming_response(response, model)
 
     async def _process_non_streaming_response(
-        self, response: dict, model: str
-    ) -> ChatCompletion:
+        self,
+        response: mypy_boto3_bedrock_runtime.type_defs.ConverseResponseTypeDef,
+        model: str,
+    ) -> openai.types.chat.ChatCompletion:
         """非ストリーミングレスポンスをOpenAI形式に変換します。
 
         Args:
@@ -190,18 +210,89 @@ class AWSClient:
         Returns:
             ChatCompletion: OpenAI形式のレスポンス
         """
-        response_body = json.loads(response["body"].read())
-        return ChatCompletion(
+        logger.debug(f"{response=}")
+        print(f"{response=}")  # TODO: 仮
+
+        # response:
+        #   output: ConverseOutputTypeDef
+        #   stopReason: StopReasonType
+        #   usage: TokenUsageTypeDef
+        #   metrics: ConverseMetricsTypeDef
+        #   additionalModelResponseFields: Dict[str, Any]
+        #   trace: ConverseTraceTypeDef
+        #   performanceConfig: PerformanceConfigurationTypeDef
+        #   ResponseMetadata: ResponseMetadataTypeDef
+        # 例：
+        # {
+        #     "ResponseMetadata": {
+        #         "RequestId": "35a78c10-4d44-4f22-98bd-7e90ac7baf8b",
+        #         "HTTPStatusCode": 200,
+        #         "HTTPHeaders": {
+        #             "date": "Tue, 20 May 2025 14:37:39 GMT",
+        #             "content-type": "application/json",
+        #             "content-length": "366",
+        #             "connection": "keep-alive",
+        #             "x-amzn-requestid": "35a78c10-4d44-4f22-98bd-7e90ac7baf8b",
+        #         },
+        #         "RetryAttempts": 0,
+        #     },
+        #     "output": {
+        #         "message": {
+        #             "role": "assistant",
+        #             "content": [
+        #                 {
+        #                     "text": "こんにちは!どうぞよろしくお願いいたします。何かお手伝いできることはありますか?私はあなたのお役に立てるよう最善を尽くします。"
+        #                 }
+        #             ],
+        #         }
+        #     },
+        #     "stopReason": "end_turn",
+        #     "usage": {"inputTokens": 27, "outputTokens": 60, "totalTokens": 87},
+        #     "metrics": {"latencyMs": 726},
+        # }
+
+        finish_reason: (
+            typing.Literal[
+                "stop", "length", "tool_calls", "content_filter", "function_call"
+            ]
+            | None
+        ) = {
+            "end_turn": "stop",
+            "tool_use": "tool_calls",
+            "max_tokens": "length",
+            "stop_sequence": "stop",
+            "guardrail_intervened": "content_filter",
+            "content_filtered": "content_filter",
+            None: None,
+        }[
+            response.get("stopReason")
+        ]
+        usage: openai.types.completion_usage.CompletionUsage | None = None
+        if (bedrock_usage := response.get("usage")) is not None:
+            usage = openai.types.completion_usage.CompletionUsage.model_construct(
+                completion_tokens=bedrock_usage.get("inputTokens", 0),
+                prompt_tokens=bedrock_usage.get("outputTokens", 0),
+                total_tokens=bedrock_usage.get("totalTokens", 0),
+                completion_tokens_details=openai.types.completion_usage.CompletionTokensDetails.model_construct(
+                    # TODO: cacheWriteが無いっぽい
+                    accepted_prediction_tokens=bedrock_usage.get(
+                        "cacheWriteInputTokens", 0
+                    )
+                ),
+                prompt_tokens_details=openai.types.completion_usage.PromptTokensDetails.model_construct(
+                    cached_tokens=bedrock_usage.get("cacheReadInputTokens", 0)
+                ),
+            )
+
+        return openai.types.chat.ChatCompletion.model_construct(
             id=str(uuid.uuid4()),
             choices=[
                 {
                     "message": {
                         "role": "assistant",
-                        "content": response_body["output"]["message"]["content"][0][
-                            "text"
-                        ],
+                        "content": response["output"]["message"]["content"][0]["text"],
                     },
-                    "finish_reason": response_body.get("stopReason", "stop"),
+                    "finish_reason": finish_reason,
                     "index": 0,
                 }
             ],
@@ -209,14 +300,12 @@ class AWSClient:
             model=model,
             object="chat.completion",
             system_fingerprint=None,
-            usage=response_body.get(
-                "usage", {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0}
-            ),
+            usage=usage,
         )
 
     async def _process_streaming_response(
         self, response: dict, model: str
-    ) -> AsyncStream[ChatCompletionChunk]:
+    ) -> openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk]:
         """ストリーミングレスポンスを処理します。
 
         Args:
@@ -234,17 +323,19 @@ class AWSClient:
                 if chunk := self._process_stream_event(event_data, model):
                     yield chunk
 
-        return AsyncStream[ChatCompletionChunk](
-            cast_to=ChatCompletionChunk,
+        # TODO: 派生クラス作らんとだめかも
+        # OpenAIのプロトコルに無い情報をAWS・GoogleのAPIが持ってることもあるから悩ましいな…
+
+        return openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk](
+            cast_to=openai.types.chat.ChatCompletionChunk,
             response=response,
             client=self,
-            stream_cls=lambda x: None,  # 不要だが、APIの要件で必要
             stream=process_stream(),
         )
 
     def _process_stream_event(
         self, event_data: dict, model: str
-    ) -> ChatCompletionChunk | None:
+    ) -> openai.types.chat.ChatCompletionChunk | None:
         """ストリームイベントをOpenAI形式のチャンクに変換します。
 
         Args:
@@ -256,7 +347,7 @@ class AWSClient:
         """
         if "contentBlockDelta" in event_data:
             delta_text = event_data["contentBlockDelta"]["delta"].get("text", "")
-            return ChatCompletionChunk(
+            return openai.types.chat.ChatCompletionChunk(
                 id=str(uuid.uuid4()),
                 choices=[
                     {
@@ -270,7 +361,7 @@ class AWSClient:
                 object="chat.completion.chunk",
             )
         elif "messageStop" in event_data:
-            return ChatCompletionChunk(
+            return openai.types.chat.ChatCompletionChunk(
                 id=str(uuid.uuid4()),
                 choices=[
                     {
@@ -322,4 +413,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    asyncio.run(main())
     asyncio.run(main())
