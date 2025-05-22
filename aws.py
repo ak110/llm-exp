@@ -15,7 +15,6 @@ https://platform.openai.com/docs/api-reference/chat/create
 """
 
 import asyncio
-import json
 import logging
 import os
 import time
@@ -119,7 +118,7 @@ class AWSClient:
         timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
     ) -> (
         openai.types.chat.ChatCompletion
-        | openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk]
+        | typing.AsyncGenerator[openai.types.chat.ChatCompletionChunk]
     ):
         """OpenAIのChat Completions APIを使用してチャット応答を生成します。
 
@@ -304,8 +303,10 @@ class AWSClient:
         )
 
     async def _process_streaming_response(
-        self, response: dict, model: str
-    ) -> openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk]:
+        self,
+        response: mypy_boto3_bedrock_runtime.type_defs.ConverseStreamResponseTypeDef,
+        model: str,
+    ) -> typing.AsyncGenerator[openai.types.chat.ChatCompletionChunk]:
         """ストリーミングレスポンスを処理します。
 
         Args:
@@ -313,28 +314,16 @@ class AWSClient:
             model: モデル名
 
         Returns:
-            AsyncStream[ChatCompletionChunk]: ストリーミングレスポンス
+            ストリーミングレスポンス
         """
-
-        async def process_stream():
-            """ストリームイベントを処理します。"""
-            async for event in response["body"]:
-                event_data = json.loads(event["chunk"]["bytes"].decode())
-                if chunk := self._process_stream_event(event_data, model):
-                    yield chunk
-
-        # TODO: 派生クラス作らんとだめかも
-        # OpenAIのプロトコルに無い情報をAWS・GoogleのAPIが持ってることもあるから悩ましいな…
-
-        return openai._streaming.AsyncStream[openai.types.chat.ChatCompletionChunk](
-            cast_to=openai.types.chat.ChatCompletionChunk,
-            response=response,
-            client=self,
-            stream=process_stream(),
-        )
+        for event in response["stream"]:
+            if chunk := self._process_stream_event(event, model):
+                yield chunk
 
     def _process_stream_event(
-        self, event_data: dict, model: str
+        self,
+        event_data: mypy_boto3_bedrock_runtime.type_defs.ConverseStreamOutputTypeDef,
+        model: str,
     ) -> openai.types.chat.ChatCompletionChunk | None:
         """ストリームイベントをOpenAI形式のチャンクに変換します。
 
@@ -345,6 +334,19 @@ class AWSClient:
         Returns:
             ChatCompletionChunk | None: OpenAI形式のチャンク。イベントが処理不要な場合はNone。
         """
+        # class ConverseStreamOutputTypeDef(TypedDict):
+        #     messageStart: NotRequired[MessageStartEventTypeDef]
+        #     contentBlockStart: NotRequired[ContentBlockStartEventTypeDef]
+        #     contentBlockDelta: NotRequired[ContentBlockDeltaEventTypeDef]
+        #     contentBlockStop: NotRequired[ContentBlockStopEventTypeDef]
+        #     messageStop: NotRequired[MessageStopEventTypeDef]
+        #     metadata: NotRequired[ConverseStreamMetadataEventTypeDef]
+        #     internalServerException: NotRequired[InternalServerExceptionTypeDef]
+        #     modelStreamErrorException: NotRequired[ModelStreamErrorExceptionTypeDef]
+        #     validationException: NotRequired[ValidationExceptionTypeDef]
+        #     throttlingException: NotRequired[ThrottlingExceptionTypeDef]
+        #     serviceUnavailableException: NotRequired[ServiceUnavailableExceptionTypeDef]
+
         if "contentBlockDelta" in event_data:
             delta_text = event_data["contentBlockDelta"]["delta"].get("text", "")
             return openai.types.chat.ChatCompletionChunk(
