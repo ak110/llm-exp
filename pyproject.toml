@@ -5,9 +5,9 @@ description = "実験用コード置き場"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiobotocore>=2.22.0",
     "azure-identity>=1.23.0",
     "better-exceptions>=0.3.3",
-    "boto3>=1.38.17",
     "google-cloud-aiplatform>=1.93.0",
     "iam-rolesanywhere-session>=2.3.0",
     "openai>=1.78.1",
@@ -27,8 +27,8 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
-    "boto3-stubs[bedrock,bedrock-runtime]>=1.38.19",
     "pyfltr>=1.8.0",
+    "types-aiobotocore[bedrock,bedrock-runtime]>=2.22.0",
 ]
 
 [tool.pyfltr]
