@@ -16,6 +16,7 @@ https://platform.openai.com/docs/api-reference/chat/create
 
 import asyncio
 import collections.abc
+import json
 import logging
 import os
 import time
@@ -26,8 +27,6 @@ import aiobotocore.session
 import iam_rolesanywhere_session
 import openai.types.chat
 import openai.types.completion_usage
-import openai.types.shared.metadata
-import openai.types.shared.reasoning_effort
 import types_aiobotocore_bedrock_runtime.type_defs
 from openai._types import NOT_GIVEN
 
@@ -81,6 +80,8 @@ class AWSClient:
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
+        print(f"{credentials=}")  # TODO: 仮
+        print(f"{credentials.account_id=}")
         session = aiobotocore.session.get_session()
         async with session.create_client(
             service_name="bedrock-runtime",
@@ -88,6 +89,7 @@ class AWSClient:
             aws_access_key_id=credentials.access_key,
             aws_secret_access_key=credentials.secret_key,
             aws_session_token=credentials.token,
+            aws_account_id=credentials.account_id,
         ) as bedrock:
             response = await bedrock.converse(
                 modelId=request.model,
@@ -125,7 +127,7 @@ class AWSClient:
             aws_access_key_id=credentials.access_key,
             aws_secret_access_key=credentials.secret_key,
             aws_session_token=credentials.token,
-            # aws_account_id=credentials.account_id,
+            aws_account_id=credentials.account_id,
         ) as bedrock:
             response = await bedrock.converse_stream(
                 modelId=request.model,
@@ -151,21 +153,45 @@ class AWSClient:
             types_aiobotocore_bedrock_runtime.type_defs.MessageTypeDef
         ] = []
         for message in messages:
+            role: typing.Literal["assistant", "user"]
+            content: list[
+                types_aiobotocore_bedrock_runtime.type_defs.ContentBlockTypeDef
+            ]
             # TODO: role
             # 'developer', 'system', 'user', 'assistant', 'tool', 'function'
-            if message["role"] not in ("user", "assistant"):
-                continue
-            role: typing.Literal["assistant", "user"] = message["role"]
+            if message["role"] == "tool":
+                role = "user"
 
-            if isinstance(message["content"], list):
-                content = message["content"]
-            elif isinstance(message["content"], str):
-                content = [{"text": message["content"]}]
+                content_data = message["content"]
+                try:
+                    content_data = {"json": json.loads(content_data)}
+                except json.JSONDecodeError:
+                    content_data = {"text": content_data}
+
+                content = [
+                    {
+                        "toolResult": {
+                            "toolUseId": message["tool_call_id"],
+                            "content": [content_data],
+                            # "status": "error"  ⇒ OpenAI APIにはこれに相当するものが無い…
+                        }
+                    }
+                ]
+
+            elif message["role"] in ("user", "assistant"):
+                role: typing.Literal["assistant", "user"] = message["role"]
+                if isinstance(message["content"], list):
+                    # TODO: image_urlなど
+                    content = message["content"]
+                elif isinstance(message["content"], str):
+                    content = [{"text": message["content"]}]
+                else:
+                    raise ValueError(
+                        f"Invalid content type: {type(message['content'])}. "
+                        "Expected str or list."
+                    )
             else:
-                raise ValueError(
-                    f"Invalid content type: {type(message['content'])}. "
-                    "Expected str or list."
-                )
+                continue  # 'developer', 'system', 'function' は無視
 
             formatted_messages.append({"role": role, "content": content})
 
