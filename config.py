@@ -9,9 +9,10 @@ BASE_DIR = pathlib.Path(__file__).resolve().parent
 
 dotenv.load_dotenv(BASE_DIR / ".env", verbose=True, override=False)
 
+AZURE_API_BASE = "https://privchat-eu.openai.azure.com"
 AZURE_TENANT_ID = os.environ["AZURE_TENANT_ID"]
 AZURE_CLIENT_ID = os.environ["AZURE_CLIENT_ID"]
-AZURE_CLIENT_CERTIFICATE_PATH = BASE_DIR / "cert" / "client.pem"
+AZURE_CLIENT_CERTIFICATE_PATH = BASE_DIR / "cert-azure" / "client.pem"
 
 AWS_IAMRA_PROFILE_ARN = os.environ["AWS_IAMRA_PROFILE_ARN"]
 AWS_IAMRA_ROLE_ARN = os.environ["AWS_IAMRA_ROLE_ARN"]
