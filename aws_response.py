@@ -59,9 +59,8 @@ def process_non_streaming_response(
     openai_message = openai.types.chat.ChatCompletionMessage(
         role="assistant",
         content=" ".join(openai_message_content) if openai_message_content else None,
+        tool_calls=tool_calls if tool_calls else None,
     )
-    if len(tool_calls) > 0:
-        openai_message["tool_calls"] = tool_calls
 
     return openai.types.chat.ChatCompletion.model_construct(
         id=str(uuid.uuid4()),
