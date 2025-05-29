@@ -3,8 +3,6 @@
 import typing
 
 import openai.types.chat
-import openai.types.chat.chat_completion
-import openai.types.completion_usage
 import openai.types.shared.metadata
 import openai.types.shared.reasoning_effort
 import pydantic

@@ -21,7 +21,31 @@ def make_inference_config(
     request: types_chat.ChatRequest,
 ) -> types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef:
     """推論設定を作成。"""
-    inference_config = {}
+    # 未サポートのパラメータをチェック
+    if request.response_format is not NOT_GIVEN:
+        logger.warning("response_format is not supported in AWS Bedrock implementation")
+    if request.seed is not NOT_GIVEN:
+        logger.warning("seed is not supported in AWS Bedrock implementation")
+    if request.web_search_options is not NOT_GIVEN:
+        logger.warning(
+            "web_search_options is not supported in AWS Bedrock implementation"
+        )
+    if request.presence_penalty is not NOT_GIVEN:
+        logger.warning(
+            "presence_penalty is not supported in AWS Bedrock implementation"
+        )
+    if request.frequency_penalty is not NOT_GIVEN:
+        logger.warning(
+            "frequency_penalty is not supported in AWS Bedrock implementation"
+        )
+    if request.logprobs is not NOT_GIVEN:
+        logger.warning("logprobs is not supported in AWS Bedrock implementation")
+    if request.top_logprobs is not NOT_GIVEN:
+        logger.warning("top_logprobs is not supported in AWS Bedrock implementation")
+
+    inference_config: (
+        types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef
+    ) = {}
     if request.max_tokens is not NOT_GIVEN:
         inference_config["maxTokens"] = request.max_tokens
     if request.stop is not NOT_GIVEN:

@@ -40,19 +40,10 @@ class VertexAIClient:
         formatted_messages, system_instruction = vertexai_request.format_messages(
             request.messages
         )
-
-        # システムメッセージがある場合は、最初のメッセージとして追加
-        if system_instruction:
-            formatted_messages.insert(
-                0,
-                google.genai.types.Content(
-                    role="user",
-                    parts=[google.genai.types.Part(text=system_instruction)],
-                ),
-            )
-
         # 生成設定の作成
         generation_config = vertexai_request.make_generation_config(request)
+        if system_instruction is not None:
+            generation_config.system_instruction = system_instruction
 
         # Vertex AIでチャット生成を実行
         response = await client.aio.models.generate_content(
