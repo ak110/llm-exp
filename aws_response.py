@@ -36,33 +36,31 @@ def process_non_streaming_response(
     content_blocks = message.get("content", [])
 
     # OpenAI形式に変換
-    openai_message_content = []
-    tool_calls = []
+    openai_message_content: list[str] = []
+    tool_calls: list[openai.types.chat.ChatCompletionMessageToolCall] = []
 
     for content_block in content_blocks:
         if "text" in content_block:
             openai_message_content.append(content_block["text"])
         elif "toolUse" in content_block:
             tool_use = content_block["toolUse"]
-            tool_call = {
-                "id": tool_use["toolUseId"],
-                "type": "function",
-                "function": {
-                    "name": tool_use.get("name", ""),
-                    "arguments": json.dumps(tool_use.get("input", {})),
-                },
-            }
-            tool_calls.append(tool_call)
+            tool_calls.append(
+                openai.types.chat.ChatCompletionMessageToolCall(
+                    id=tool_use["toolUseId"],
+                    type="function",
+                    function=openai.types.chat.chat_completion_message_tool_call.Function(
+                        name=tool_use.get("name", ""),
+                        arguments=json.dumps(tool_use.get("input", {})),
+                    ),
+                )
+            )
 
     # メッセージ作成
-    openai_message = {
-        "role": "assistant",
-        "content": (
-            " ".join(openai_message_content) if openai_message_content else None
-        ),
-    }
-
-    if tool_calls:
+    openai_message = openai.types.chat.ChatCompletionMessage(
+        role="assistant",
+        content=" ".join(openai_message_content) if openai_message_content else None,
+    )
+    if len(tool_calls) > 0:
         openai_message["tool_calls"] = tool_calls
 
     return openai.types.chat.ChatCompletion.model_construct(

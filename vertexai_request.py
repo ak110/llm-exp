@@ -6,7 +6,7 @@ import typing
 
 import google.genai.types
 import openai.types.chat
-from openai._types import NOT_GIVEN
+from openai._types import NotGiven
 
 import types_chat
 
@@ -18,43 +18,37 @@ def make_generation_config(
 ) -> google.genai.types.GenerateContentConfigOrDict:
     """生成設定を作成します。"""
     # 未サポートのパラメータをチェック
-    if request.web_search_options is not NOT_GIVEN:
+    if not isinstance(request.web_search_options, NotGiven):
         logger.warning(
             "web_search_options is not supported in Vertex AI implementation"
         )
     generation_config = google.genai.types.GenerateContentConfig()
 
-    if request.temperature is not NOT_GIVEN:
-        generation_config.temperature = typing.cast(float | None, request.temperature)
+    if not isinstance(request.temperature, NotGiven):
+        generation_config.temperature = request.temperature
 
-    if request.max_tokens is not NOT_GIVEN:
-        generation_config.max_output_tokens = typing.cast(
-            int | None, request.max_tokens
-        )
+    if not isinstance(request.max_tokens, NotGiven):
+        generation_config.max_output_tokens = request.max_tokens
 
-    if request.n is not NOT_GIVEN:
-        generation_config.candidate_count = typing.cast(int | None, request.n)
+    if not isinstance(request.n, NotGiven):
+        generation_config.candidate_count = request.n
 
-    if request.top_p is not NOT_GIVEN:
-        generation_config.top_p = typing.cast(float | None, request.top_p)
+    if not isinstance(request.top_p, NotGiven):
+        generation_config.top_p = request.top_p
 
-    if request.presence_penalty is not NOT_GIVEN:
-        generation_config.presence_penalty = typing.cast(
-            float | None, request.presence_penalty
-        )
+    if not isinstance(request.presence_penalty, NotGiven):
+        generation_config.presence_penalty = request.presence_penalty
 
-    if request.frequency_penalty is not NOT_GIVEN:
-        generation_config.frequency_penalty = typing.cast(
-            float | None, request.frequency_penalty
-        )
+    if not isinstance(request.frequency_penalty, NotGiven):
+        generation_config.frequency_penalty = request.frequency_penalty
 
-    if request.stop is not NOT_GIVEN:
+    if not isinstance(request.stop, NotGiven):
         if isinstance(request.stop, str):
             generation_config.stop_sequences = [request.stop]
         elif isinstance(request.stop, list):
             generation_config.stop_sequences = request.stop
 
-    if request.tools is not NOT_GIVEN:
+    if not isinstance(request.tools, NotGiven):
         tools = []
         for tool in request.tools:
             if tool["type"] == "function":
@@ -72,31 +66,31 @@ def make_generation_config(
                 )
         generation_config.tools = tools
 
-    if request.tool_choice is not NOT_GIVEN and request.tool_choice != "auto":
+    if not isinstance(request.tool_choice, NotGiven) and request.tool_choice != "auto":
         if request.tool_choice["type"] == "function":
             generation_config.tool_config = google.genai.types.ToolConfig(
-                function_call_behavior=google.genai.types.FunctionCall(
+                function_call_behavior=google.genai.types.FunctionCall(  # type: ignore
                     name=request.tool_choice["function"]["name"]
                 )
             )
 
-    if request.top_logprobs is not NOT_GIVEN:
-        generation_config.logprobs = typing.cast(int | None, request.top_logprobs)
+    if not isinstance(request.top_logprobs, NotGiven):
+        generation_config.logprobs = request.top_logprobs
 
-    if request.response_format is not NOT_GIVEN:
+    if not isinstance(request.response_format, NotGiven):
         response_format_type = request.response_format.get("type")
         if response_format_type == "text":
             pass
         elif response_format_type == "json_schema":
-            generation_config.response_schema = request.response_format["json_schema"]
+            generation_config.response_schema = request.response_format["json_schema"]  # type: ignore
         else:
             logger.warning(
                 f"Unsupported response format type: {response_format_type}. "
                 "Defaulting to text response."
             )
 
-    if request.seed is not NOT_GIVEN:
-        generation_config.seed = typing.cast(int | None, request.seed)
+    if not isinstance(request.seed, NotGiven):
+        generation_config.seed = request.seed
 
     return generation_config
 

@@ -10,7 +10,7 @@ import typing
 import openai.types.chat
 import pytilpack.data_url
 import types_aiobotocore_bedrock_runtime.type_defs
-from openai._types import NOT_GIVEN
+from openai._types import NotGiven
 
 import types_chat
 
@@ -22,39 +22,39 @@ def make_inference_config(
 ) -> types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef:
     """推論設定を作成。"""
     # 未サポートのパラメータをチェック
-    if request.response_format is not NOT_GIVEN:
+    if not isinstance(request.response_format, NotGiven):
         logger.warning("response_format is not supported in AWS Bedrock implementation")
-    if request.seed is not NOT_GIVEN:
+    if not isinstance(request.seed, NotGiven):
         logger.warning("seed is not supported in AWS Bedrock implementation")
-    if request.web_search_options is not NOT_GIVEN:
+    if not isinstance(request.web_search_options, NotGiven):
         logger.warning(
             "web_search_options is not supported in AWS Bedrock implementation"
         )
-    if request.presence_penalty is not NOT_GIVEN:
+    if not isinstance(request.presence_penalty, NotGiven):
         logger.warning(
             "presence_penalty is not supported in AWS Bedrock implementation"
         )
-    if request.frequency_penalty is not NOT_GIVEN:
+    if not isinstance(request.frequency_penalty, NotGiven):
         logger.warning(
             "frequency_penalty is not supported in AWS Bedrock implementation"
         )
-    if request.logprobs is not NOT_GIVEN:
+    if not isinstance(request.logprobs, NotGiven):
         logger.warning("logprobs is not supported in AWS Bedrock implementation")
-    if request.top_logprobs is not NOT_GIVEN:
+    if not isinstance(request.top_logprobs, NotGiven):
         logger.warning("top_logprobs is not supported in AWS Bedrock implementation")
 
     inference_config: (
         types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef
     ) = {}
-    if request.max_tokens is not NOT_GIVEN:
+    if not isinstance(request.max_tokens, NotGiven):
         inference_config["maxTokens"] = request.max_tokens
-    if request.stop is not NOT_GIVEN:
+    if not isinstance(request.stop, NotGiven):
         inference_config["stopSequences"] = (
             request.stop if isinstance(request.stop, list) else [request.stop]
         )
-    if request.temperature is not NOT_GIVEN:
+    if not isinstance(request.temperature, NotGiven):
         inference_config["temperature"] = request.temperature
-    if request.top_p is not NOT_GIVEN:
+    if not isinstance(request.top_p, NotGiven):
         inference_config["topP"] = request.top_p
     return inference_config
 
