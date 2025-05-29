@@ -21,21 +21,6 @@ def process_non_streaming_response(
 ) -> openai.types.chat.ChatCompletion:
     """非ストリーミングレスポンスをOpenAI形式に変換します。"""
 
-    # usageの処理
-    usage = None
-    if hasattr(response, "usage_metadata") and response.usage_metadata:
-        usage_data = {
-            "prompt_tokens": getattr(response.usage_metadata, "prompt_token_count", 0),
-            "completion_tokens": getattr(
-                response.usage_metadata, "candidates_token_count", 0
-            ),
-            "total_tokens": getattr(response.usage_metadata, "total_token_count", 0),
-        }
-        usage = openai.types.completion_usage.CompletionUsage.model_construct(
-            **usage_data
-        )
-
-    # レスポンスの処理
     choices = []
     if response.candidates:
         for i, candidate in enumerate(response.candidates):
@@ -68,7 +53,7 @@ def process_non_streaming_response(
             if tool_calls:
                 message["tool_calls"] = tool_calls
 
-            finish_reason = get_finish_reason(candidate.finish_reason)
+            finish_reason = _convert_finish_reason(candidate.finish_reason)
 
             choices.append(
                 {"index": i, "message": message, "finish_reason": finish_reason}
@@ -80,7 +65,7 @@ def process_non_streaming_response(
         created=int(time.time()),
         model=request.model,
         object="chat.completion",
-        usage=usage,
+        usage=_convert_usage(response.usage_metadata),
     )
 
 
@@ -121,7 +106,7 @@ def process_stream_chunk(
                     delta["tool_calls"] = tool_calls
 
             finish_reason = (
-                get_finish_reason(candidate.finish_reason)
+                _convert_finish_reason(candidate.finish_reason)
                 if candidate.finish_reason
                 else None
             )
@@ -134,17 +119,18 @@ def process_stream_chunk(
 
     return openai.types.chat.ChatCompletionChunk.model_construct(
         id=str(uuid.uuid4()),
+        object="chat.completion.chunk",
         choices=choices,
         created=int(time.time()),
         model=request.model,
-        object="chat.completion.chunk",
+        usage=_convert_usage(chunk.usage_metadata),
     )
 
 
-def get_finish_reason(
+def _convert_finish_reason(
     finish_reason: typing.Any,
 ) -> typing.Literal["stop", "length", "tool_calls", "content_filter"] | None:
-    """finish_reasonをOpenAI形式に変換します。"""
+    """finish_reasonをOpenAI形式に変換する。"""
     if finish_reason is None:
         return None
 
@@ -161,3 +147,34 @@ def get_finish_reason(
         return "tool_calls"
     else:
         return "stop"  # デフォルト
+
+
+def _convert_usage(
+    usage_metadata: google.genai.types.GenerateContentResponseUsageMetadata | None,
+):
+    """usage_metadataをOpenAI形式に変換する。"""
+    if usage_metadata is None:
+        return None
+    return openai.types.completion_usage.CompletionUsage(
+        prompt_tokens=usage_metadata.prompt_token_count or 0,
+        completion_tokens=usage_metadata.candidates_token_count or 0,
+        total_tokens=usage_metadata.total_token_count or 0,
+        prompt_tokens_details=openai.types.completion_usage.PromptTokensDetails(
+            audio_tokens=sum(
+                detail.token_count
+                for detail in (usage_metadata.prompt_tokens_details or [])
+                if detail.modality == google.genai.types.MediaModality.AUDIO
+            ),
+            cached_tokens=usage_metadata.cached_content_token_count,
+        ),
+        completion_tokens_details=openai.types.completion_usage.CompletionTokensDetails(
+            reasoning_tokens=usage_metadata.thoughts_token_count or 0,
+            audio_tokens=sum(
+                detail.token_count
+                for detail in (usage_metadata.candidates_tokens_details or [])
+                if detail.modality == google.genai.types.MediaModality.AUDIO
+            ),
+            accepted_prediction_tokens=None,
+            rejected_prediction_tokens=None,
+        ),
+    )
