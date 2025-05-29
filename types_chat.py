@@ -1,7 +1,6 @@
 """OpenAI互換API用pydantic。"""
 
 import typing
-from typing import Literal
 
 import openai.types.chat
 import openai.types.chat.chat_completion
@@ -62,79 +61,3 @@ class ChatRequest(pydantic.BaseModel):
     web_search_options: (
         openai.types.chat.completion_create_params.WebSearchOptions | NotGiven
     ) = NOT_GIVEN
-
-
-class ChatResponse(pydantic.BaseModel):
-    """チャット補完APIのレスポンス。"""
-
-    id: str
-    """A unique identifier for the chat completion."""
-
-    choices: list[openai.types.chat.chat_completion.Choice]
-    """A list of chat completion choices.
-
-    Can be more than one if `n` is greater than 1.
-    """
-
-    created: int
-    """The Unix timestamp (in seconds) of when the chat completion was created."""
-
-    model: str
-    """The model used for the chat completion."""
-
-    object: Literal["chat.completion"]
-    """The object type, which is always `chat.completion`."""
-
-    service_tier: Literal["auto", "default", "flex"] | None = None
-    """Specifies the latency tier to use for processing the request.
-
-    This parameter is relevant for customers subscribed to the scale tier service:
-
-    - If set to 'auto', and the Project is Scale tier enabled, the system will
-      utilize scale tier credits until they are exhausted.
-    - If set to 'auto', and the Project is not Scale tier enabled, the request will
-      be processed using the default service tier with a lower uptime SLA and no
-      latency guarentee.
-    - If set to 'default', the request will be processed using the default service
-      tier with a lower uptime SLA and no latency guarentee.
-    - If set to 'flex', the request will be processed with the Flex Processing
-      service tier.
-      [Learn more](https://platform.openai.com/docs/guides/flex-processing).
-    - When not set, the default behavior is 'auto'.
-
-    When this parameter is set, the response body will include the `service_tier`
-    utilized.
-    """
-
-    system_fingerprint: str | None = None
-    """This fingerprint represents the backend configuration that the model runs with.
-
-    Can be used in conjunction with the `seed` request parameter to understand when
-    backend changes have been made that might impact determinism.
-    """
-
-    usage: "ChatResponseUsage | None" = None
-    """Usage statistics for the completion request."""
-
-
-class ChatResponseUsage(pydantic.BaseModel):
-    """チャット補完APIのレスポンスの使用量統計。"""
-
-    completion_tokens: int
-    """Number of tokens in the generated completion."""
-
-    prompt_tokens: int
-    """Number of tokens in the prompt."""
-
-    total_tokens: int
-    """Total number of tokens used in the request (prompt + completion)."""
-
-    completion_tokens_details: (
-        openai.types.completion_usage.CompletionTokensDetails
-    ) | None = None
-    """Breakdown of tokens used in a completion."""
-
-    prompt_tokens_details: (
-        openai.types.completion_usage.PromptTokensDetails
-    ) | None = None
-    """Breakdown of tokens used in the prompt."""
