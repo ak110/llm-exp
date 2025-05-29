@@ -229,9 +229,70 @@ def format_messages(
                     google.genai.types.Content(role=role, parts=parts)
                 )
         elif role == "tool":
-            # TODO: 要実装
-            pass
+            # ツールメッセージを変換
+            tool_call_message = typing.cast(
+                openai.types.chat.ChatCompletionToolMessageParam, message
+            )
+            content = tool_call_message.get("content")
+            tool_call_id = tool_call_message.get("tool_call_id")
+
+            if content is not None and tool_call_id is not None:
+                if isinstance(content, str):
+                    response_content = content
+                elif isinstance(content, typing.Iterable):
+                    # 複数のパートがある場合はテキストを結合
+                    response_content = "\n".join(
+                        part.get("text", "") for part in content
+                    )
+                else:
+                    logger.warning(
+                        f"Tool message content is not a string: {content=}. "
+                        "Skipping tool message."
+                    )
+                    response_content: str = ""
+
+                # FunctionResponseとしてPartsに追加
+
+                # 参考:
+                # class FunctionResponseScheduling(_common.CaseInSensitiveEnum):
+                #   """会話における応答のスケジュール方法を指定します。"""
+                #   SCHEDULING_UNSPECIFIED = 'SCHEDULING_UNSPECIFIED'
+                #   """この値は使用されません。"""
+                #   SILENT = 'SILENT'
+                #   """結果を会話コンテキストに追加するだけで、進行中の処理を中断したり生成を開始させたりしません。"""
+                #   WHEN_IDLE = 'WHEN_IDLE'
+                #   """結果を会話コンテキストに追加し、進行中の生成処理を中断せずに出力生成を促すプロンプトを表示します。"""
+                #   INTERRUPT = 'INTERRUPT'
+                #   """結果を会話コンテキストに追加し、進行中の生成処理を中断した上で出力生成を促すプロンプトを表示します。"""
+
+                parts = [
+                    google.genai.types.Part(
+                        function_response=google.genai.types.FunctionResponse(
+                            name=_find_tool_name_by_id(messages, tool_call_id),
+                            response={"output": response_content},
+                            scheduling=google.genai.types.FunctionResponseScheduling.WHEN_IDLE,
+                        )
+                    )
+                ]
+                formatted_messages.append(
+                    google.genai.types.Content(role="model", parts=parts)
+                )
         else:
+            # role == "function"は未サポート
             logger.warning(f"Unsupported message: {message=}")
 
     return formatted_messages, system_instruction
+
+
+def _find_tool_name_by_id(
+    messages: typing.Iterable[openai.types.chat.ChatCompletionMessageParam],
+    tool_call_id: str,
+) -> str:
+    """ツール呼び出しIDからツール名を取得します。"""
+    for message in messages:
+        if message.get("role") == "assistant":
+            tool_calls = message.get("tool_calls", [])
+            for tool_call in tool_calls:
+                if tool_call.get("id") == tool_call_id:
+                    return tool_call.get("function", {}).get("name", "")
+    return ""
