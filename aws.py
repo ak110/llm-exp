@@ -64,12 +64,7 @@ class AWSClient:
     async def chat(
         self, request: types_chat.ChatRequest
     ) -> openai.types.chat.ChatCompletion:
-        """OpenAIのChat Completions APIを使用してチャット応答を生成します。
-
-        Returns:
-            ChatCompletion | AsyncStream[ChatCompletionChunk]: ストリーミングが無効の場合はChatCompletion、
-            有効の場合はAsyncStream[ChatCompletionChunk]を返します。
-        """
+        """OpenAIのChat Completions API互換API。"""
         assert self.session is not None
         assert not request.stream
         messages, system = self._format_messages(request.messages)
@@ -108,12 +103,7 @@ class AWSClient:
     async def chat_stream(
         self, request: types_chat.ChatRequest
     ) -> collections.abc.AsyncGenerator[openai.types.chat.ChatCompletionChunk, None]:
-        """OpenAIのChat Completions APIを使用してチャット応答を生成します。
-
-        Returns:
-            ChatCompletion | AsyncStream[ChatCompletionChunk]: ストリーミングが無効の場合はChatCompletion、
-            有効の場合はAsyncStream[ChatCompletionChunk]を返します。
-        """
+        """OpenAIのChat Completions API互換API。(ストリーミング版)"""
         assert self.session is not None
         assert request.stream
         messages, system = self._format_messages(request.messages)

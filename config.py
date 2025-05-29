@@ -23,4 +23,4 @@ AWS_IAMRA_PRIVATE_PATH = BASE_DIR / "cert-aws" / "client-key.pem"
 GOOGLE_PROJECT_ID = os.environ["GOOGLE_PROJECT_ID"]
 GOOGLE_REGION = os.environ.get("GOOGLE_REGION", "asia-northeast1")
 GOOGLE_APPLICATION_CREDENTIALS = BASE_DIR / "cert-gc" / "service-account-key.json"
-GOOGLE_APPLICATION_CREDENTIALS = BASE_DIR / "cert-gc" / "service-account-key.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(GOOGLE_APPLICATION_CREDENTIALS)
