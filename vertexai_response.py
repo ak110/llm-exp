@@ -155,6 +155,13 @@ def _convert_usage(
     """usage_metadataをOpenAI形式に変換する。"""
     if usage_metadata is None:
         return None
+
+    # 例: https://ai.google.dev/gemini-api/docs/caching?hl=ja&lang=python
+    # prompt_token_count: 696219
+    # cached_content_token_count: 696190
+    # candidates_token_count: 214
+    # total_token_count: 696433
+
     return openai.types.completion_usage.CompletionUsage(
         prompt_tokens=usage_metadata.prompt_token_count or 0,
         completion_tokens=usage_metadata.candidates_token_count or 0,

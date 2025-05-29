@@ -27,8 +27,8 @@ def make_generation_config(
     if not isinstance(request.temperature, NotGiven):
         generation_config.temperature = request.temperature
 
-    if not isinstance(request.max_tokens, NotGiven):
-        generation_config.max_output_tokens = request.max_tokens
+    if not isinstance(request.max_completion_tokens, NotGiven):
+        generation_config.max_output_tokens = request.max_completion_tokens
 
     if not isinstance(request.n, NotGiven):
         generation_config.candidate_count = request.n

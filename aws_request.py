@@ -46,8 +46,8 @@ def make_inference_config(
     inference_config: (
         types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef
     ) = {}
-    if not isinstance(request.max_tokens, NotGiven):
-        inference_config["maxTokens"] = request.max_tokens
+    if not isinstance(request.max_completion_tokens, NotGiven):
+        inference_config["maxTokens"] = request.max_completion_tokens
     if not isinstance(request.stop, NotGiven):
         inference_config["stopSequences"] = (
             request.stop if isinstance(request.stop, list) else [request.stop]
