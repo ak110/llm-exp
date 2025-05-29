@@ -30,14 +30,13 @@ class AzureClient:
         """OpenAIのChat Completions API互換API。"""
         assert not request.stream
 
-        client = openai.AsyncAzureOpenAI(
+        async with openai.AsyncAzureOpenAI(
             azure_endpoint="https://privchat-eu.openai.azure.com",
             api_version="2025-01-01-preview",
             azure_ad_token=acquire_access_token(
                 ["https://cognitiveservices.azure.com/.default"]
             ),
-        )
-        try:
+        ) as client:
             return await client.chat.completions.create(
                 model=request.model,
                 messages=request.messages,
@@ -69,8 +68,6 @@ class AzureClient:
                 user=request.user,
                 web_search_options=request.web_search_options,
             )
-        finally:
-            await client.close()
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -80,14 +77,13 @@ class AzureClient:
         if request.stream_options is NOT_GIVEN:
             request.stream_options = {"include_usage": True}
 
-        client = openai.AsyncAzureOpenAI(
+        async with openai.AsyncAzureOpenAI(
             azure_endpoint="https://privchat-eu.openai.azure.com",
             api_version="2025-01-01-preview",
             azure_ad_token=acquire_access_token(
                 ["https://cognitiveservices.azure.com/.default"]
             ),
-        )
-        try:
+        ) as client:
             stream = await client.chat.completions.create(
                 model=request.model,
                 messages=request.messages,
@@ -121,8 +117,6 @@ class AzureClient:
             )
             async for chunk in stream:
                 yield chunk
-        finally:
-            await client.close()
 
 
 def acquire_access_token(scopes: list[str]) -> str:
