@@ -17,36 +17,79 @@ def make_generation_config(
     request: types_chat.ChatRequest,
 ) -> google.genai.types.GenerateContentConfigOrDict:
     """生成設定を作成します。"""
-    # 未サポートのパラメータをチェック
-    if not isinstance(request.web_search_options, NotGiven):
-        logger.warning(
-            "web_search_options is not supported in Vertex AI implementation"
-        )
     generation_config = google.genai.types.GenerateContentConfig()
 
-    if not isinstance(request.temperature, NotGiven):
-        generation_config.temperature = request.temperature
+    if not isinstance(request.audio, NotGiven):
+        logger.warning("audio parameter is not supported in Vertex AI implementation")
+
+    if not isinstance(request.frequency_penalty, NotGiven):
+        generation_config.frequency_penalty = request.frequency_penalty
+
+    if not isinstance(request.logit_bias, NotGiven):
+        logger.warning(
+            "logit_bias parameter is not supported in Vertex AI implementation"
+        )
+
+    if not isinstance(request.logprobs, NotGiven):
+        generation_config.logprobs = request.logprobs
 
     if not isinstance(request.max_completion_tokens, NotGiven):
         generation_config.max_output_tokens = request.max_completion_tokens
 
+    # metadataは生成設定には影響しない
+
+    if not isinstance(request.modalities, NotGiven):
+        logger.warning(
+            "modalities parameter is not supported in Vertex AI implementation"
+        )
+
     if not isinstance(request.n, NotGiven):
         generation_config.candidate_count = request.n
 
-    if not isinstance(request.top_p, NotGiven):
-        generation_config.top_p = request.top_p
+    if not isinstance(request.parallel_tool_calls, NotGiven):
+        logger.warning(
+            "parallel_tool_calls parameter is not supported in Vertex AI implementation"
+        )
+
+    # predictionは生成設定には影響しない
 
     if not isinstance(request.presence_penalty, NotGiven):
         generation_config.presence_penalty = request.presence_penalty
 
-    if not isinstance(request.frequency_penalty, NotGiven):
-        generation_config.frequency_penalty = request.frequency_penalty
+    if not isinstance(request.reasoning_effort, NotGiven):
+        logger.warning(
+            "reasoning_effort parameter is not supported in Vertex AI implementation"
+        )
+
+    if not isinstance(request.response_format, NotGiven):
+        response_format_type = request.response_format.get("type")
+        if response_format_type == "text":
+            pass
+        elif response_format_type == "json_schema":
+            generation_config.response_schema = request.response_format["json_schema"]  # type: ignore
+        else:
+            logger.warning(
+                f"Unsupported response format type: {response_format_type}. "
+                "Defaulting to text response."
+            )
+
+    if not isinstance(request.seed, NotGiven):
+        generation_config.seed = request.seed
+
+    # service_tierは生成設定には影響しない
 
     if not isinstance(request.stop, NotGiven):
         if isinstance(request.stop, str):
             generation_config.stop_sequences = [request.stop]
         elif isinstance(request.stop, list):
             generation_config.stop_sequences = request.stop
+
+    # storeは生成設定には影響しない
+    # streamは生成設定には影響しない
+    # stream_optionsは生成設定には影響しない
+
+    if not isinstance(request.temperature, NotGiven):
+        generation_config.temperature = request.temperature
 
     if not isinstance(request.tools, NotGiven):
         tools = []
@@ -77,20 +120,15 @@ def make_generation_config(
     if not isinstance(request.top_logprobs, NotGiven):
         generation_config.logprobs = request.top_logprobs
 
-    if not isinstance(request.response_format, NotGiven):
-        response_format_type = request.response_format.get("type")
-        if response_format_type == "text":
-            pass
-        elif response_format_type == "json_schema":
-            generation_config.response_schema = request.response_format["json_schema"]  # type: ignore
-        else:
-            logger.warning(
-                f"Unsupported response format type: {response_format_type}. "
-                "Defaulting to text response."
-            )
+    if not isinstance(request.top_p, NotGiven):
+        generation_config.top_p = request.top_p
 
-    if not isinstance(request.seed, NotGiven):
-        generation_config.seed = request.seed
+    # userは生成設定には影響しない
+
+    if not isinstance(request.web_search_options, NotGiven):
+        logger.warning(
+            "web_search_options is not supported in Vertex AI implementation"
+        )
 
     return generation_config
 
@@ -103,14 +141,26 @@ def format_messages(
     system_instruction: str | None = None
 
     for message in messages:
-        if message["role"] == "system":
+        role = message.get("role")
+        if role in ("system", "developer"):
             # システムメッセージは system_instruction として扱う
             content = message.get("content")
-            if content and isinstance(content, str):
-                system_instruction = content
-        elif message["role"] in ("user", "assistant"):
+            if content is not None:
+                if isinstance(content, str):
+                    system_instruction = content
+                elif isinstance(content, typing.Iterable):
+                    # システムメッセージが複数のパートを持つ場合
+                    system_instruction = "\n".join(
+                        part.get("text", "") for part in content
+                    )
+                else:
+                    logger.warning(
+                        f"System message content is not a string: {content=}. "
+                        "Skipping system message."
+                    )
+        elif role in ("user", "assistant"):
             # ユーザーとアシスタントのメッセージを変換
-            parts = []
+            parts: list[google.genai.types.Part] = []
             content: (
                 str
                 | typing.Iterable[
@@ -148,19 +198,17 @@ def format_messages(
                                 )
                             else:
                                 parts.append(google.genai.types.Part(uri=image_url))
-                        elif isinstance(
-                            part,
-                            openai.types.chat.chat_completion_content_part_param.File,
-                        ):
-                            if part.type == "file":
-                                # ファイル添付の処理
-                                logger.warning(
-                                    "File attachments are not fully supported yet"
-                                )
+                        elif part.get("type") == "file":
+                            # ファイル添付の処理
+                            logger.warning(
+                                "File attachments are not fully supported yet"
+                            )
+                        else:
+                            logger.warning(f"Unsupported content part type: {part=}")
 
             # ツール呼び出しの処理（アシスタントメッセージの場合）
-            if message["role"] == "assistant":
-                tool_calls: list[dict[str, typing.Any]] = message.get("tool_calls", [])
+            if role == "assistant":
+                tool_calls = message.get("tool_calls", [])
                 for tool_call in tool_calls:
                     if tool_call.get("type") == "function":
                         function = tool_call.get("function", {})
@@ -173,10 +221,17 @@ def format_messages(
                                 )
                             )
                         )
+                    else:
+                        logger.warning(f"Unsupported tool call: {tool_call=}")
 
-            if parts:
+            if len(parts) > 0:
                 formatted_messages.append(
-                    google.genai.types.Content(role=message["role"], parts=parts)
+                    google.genai.types.Content(role=role, parts=parts)
                 )
+        elif role == "tool":
+            # TODO: 要実装
+            pass
+        else:
+            logger.warning(f"Unsupported message: {message=}")
 
     return formatted_messages, system_instruction

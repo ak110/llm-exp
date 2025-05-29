@@ -334,7 +334,10 @@ def to_bedrock_content_block(
             # data = value["input_audio"].get("data", "")  # Base64 encoded data.
             raise ValueError("Input audio is not supported in this implementation.")
         case "file":
-            file = value.get("file", {})
+            # .venv/lib/python3.12/site-packages/openai/types/chat/chat_completion_content_part_param.py
+            file: openai.types.chat.chat_completion_content_part_param.FileFile = (
+                value.get("file", {})
+            )
             file_data = file.get("file_data", "")  # Base64 encoded data.
             # file_id = file.get("file_id")  # uploaded file ID.
             filename = file.get("filename")  # Original filename.
