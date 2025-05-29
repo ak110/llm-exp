@@ -49,6 +49,7 @@ class AWSClient:
         assert not request.stream
         messages, system = aws_request.format_messages(request.messages)
         inference_config = aws_request.make_inference_config(request)
+        tool_config = aws_request.make_tool_config(request.tools, request.tool_choice)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -70,7 +71,7 @@ class AWSClient:
                 inferenceConfig=inference_config,
                 additionalModelRequestFields={},
                 # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
-                # toolConfig={"toolChoice": {...}, "tools": [{...}]},
+                toolConfig=tool_config,
             )
             return await aws_response.process_non_streaming_response(request, response)
 
@@ -82,6 +83,7 @@ class AWSClient:
         assert request.stream
         messages, system = aws_request.format_messages(request.messages)
         inference_config = aws_request.make_inference_config(request)
+        tool_config = aws_request.make_tool_config(request.tools, request.tool_choice)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -103,7 +105,7 @@ class AWSClient:
                 inferenceConfig=inference_config,
                 additionalModelRequestFields={},
                 # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
-                # toolConfig={"toolChoice": {...}, "tools": [{...}]},
+                toolConfig=tool_config,
             )
             async for event in response["stream"]:
                 if chunk := aws_response.process_stream_event(request, event):

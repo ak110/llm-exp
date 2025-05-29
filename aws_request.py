@@ -107,6 +107,51 @@ def format_messages(
     return formatted_messages, system
 
 
+def make_tool_config(
+    tools: typing.Iterable[openai.types.chat.ChatCompletionToolParam] | NotGiven,
+    tool_choice: openai.types.chat.ChatCompletionToolChoiceOptionParam | NotGiven,
+) -> types_aiobotocore_bedrock_runtime.type_defs.ToolConfigurationTypeDef | None:
+    """ツール設定を作成。"""
+    if isinstance(tools, NotGiven):
+        return None
+    if not isinstance(tools, list):
+        raise ValueError(f"tools must be a list. {tools=}")
+    if len(tools) == 0:
+        return None  # ツールなし
+
+    bedrock_tools: list[types_aiobotocore_bedrock_runtime.type_defs.ToolTypeDef] = []
+    for tool in tools:
+        if not isinstance(tool, dict):
+            raise ValueError(f"Each tool must be a dict. {tool=}")
+        bedrock_tools.append(
+            {
+                "name": tool.get("name", ""),
+                "description": tool.get("description", ""),
+                "inputSchema": tool.get("input_schema", {}),
+            }
+        )
+
+    bedrock_tool_choice: types_aiobotocore_bedrock_runtime.type_defs.ToolChoiceTypeDef
+    if isinstance(tool_choice, NotGiven):
+        bedrock_tool_choice = {"type": "auto"}
+    elif isinstance(tool_choice, dict):
+        if tool_choice.get("type") != "function":
+            raise ValueError(f"Invalid tool_choice: {tool_choice=}")
+        bedrock_tool_choice = {
+            "tool": {"name": tool_choice.get("function", {}).get("name", "")}
+        }
+    elif tool_choice == "auto":
+        bedrock_tool_choice = {"auto": {}}
+    elif tool_choice == "none":
+        bedrock_tool_choice = {"auto": {}}  # not supported
+    elif tool_choice == "required":
+        bedrock_tool_choice = {"any": {}}
+    else:
+        raise ValueError(f"Invalid tool_choice: {tool_choice}.")
+
+    return {"tools": bedrock_tools, "toolChoice": bedrock_tool_choice}
+
+
 def to_bedrock_userassistant_message(
     message: openai.types.chat.ChatCompletionMessageParam,
 ) -> types_aiobotocore_bedrock_runtime.type_defs.MessageUnionTypeDef:
