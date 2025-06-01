@@ -158,11 +158,12 @@ def process_stream_event(
                 id=str(uuid.uuid4()),
                 choices=[
                     {
+                        "index": content_block_index,
                         "delta": {
                             "tool_calls": [
                                 {
-                                    "index": content_block_index,
-                                    "id": tool_use["toolUseId"],
+                                    "index": 0,
+                                    "id": tool_use.get("toolUseId"),
                                     "type": "function",
                                     "function": {
                                         "name": tool_use.get("name", ""),
@@ -172,7 +173,6 @@ def process_stream_event(
                             ]
                         },
                         "finish_reason": None,
-                        "index": 0,
                     }
                 ],
                 created=int(time.time()),
@@ -216,10 +216,11 @@ def process_stream_event(
                 id=str(uuid.uuid4()),
                 choices=[
                     {
+                        "index": content_block_index,
                         "delta": {
                             "tool_calls": [
                                 {
-                                    "index": content_block_index,
+                                    "index": 0,
                                     "function": {
                                         "arguments": tool_use_delta.get("input", "")
                                     },
@@ -227,7 +228,6 @@ def process_stream_event(
                             ]
                         },
                         "finish_reason": None,
-                        "index": 0,
                     }
                 ],
                 created=int(time.time()),

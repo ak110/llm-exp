@@ -12,10 +12,13 @@ import cryptography.hazmat.primitives.hashes
 import cryptography.x509
 import msal
 import openai
+import openai.types.chat
 from openai._types import NOT_GIVEN
 
 import config
 import types_chat
+
+logger = logging.getLogger(__name__)
 
 
 class AzureClient:
@@ -159,42 +162,139 @@ async def main() -> None:
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
     client = AzureClient()
-
-    # テストメッセージの作成
-    messages: list[openai.types.chat.ChatCompletionMessageParam] = [
-        {"role": "system", "content": "あなたは親切なアシスタントです。"},
-        {"role": "user", "content": "こんにちは！"},
-    ]
+    model = "gpt-4o-mini-2024-07-18"
 
     # 非ストリーミングモードでのテスト
-    if True:
+    if False:
         response = await client.chat(
             types_chat.ChatRequest(
-                messages=messages,
-                model="gpt-4o-mini-2024-07-18",
+                messages=[
+                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
+                    {"role": "user", "content": "こんにちは！"},
+                ],
+                model=model,
                 temperature=0.7,
-                max_tokens=500,
+                max_completion_tokens=500,
                 stream=False,
             )
         )
         print("Response:", response.choices[0].message.content)
 
-    # ストリーミングモードでのテスト
-    if True:
+    # ストリーミングモードでのTool Callingテスト
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
-                messages=messages,
-                model="gpt-4o-mini-2024-07-18",
+                messages=[
+                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
+                    {"role": "user", "content": "東京の天気を教えてください"},
+                ],
+                model=model,
                 temperature=0.7,
-                max_tokens=500,
+                max_completion_tokens=500,
                 stream=True,
+                tools=[
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "description": "指定された場所の現在の天気を取得する",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "location": {
+                                        "type": "string",
+                                        "description": "天気を知りたい場所（例：東京、大阪）",
+                                    }
+                                },
+                                "required": ["location"],
+                            },
+                        },
+                    }
+                ],
             )
         )
         async for chunk in stream:
-            if len(chunk.choices) > 0 and chunk.choices[0].delta.content is not None:
-                print("Chunk:", chunk.choices[0].delta.content)
+            if len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content is not None:
+                    print("delta.content:", delta.content)
+                if delta.tool_calls is not None:
+                    print(
+                        "delta.tool_calls:",
+                        [
+                            tool_call.model_dump(exclude_none=True)
+                            for tool_call in delta.tool_calls
+                        ],
+                    )
             if chunk.usage is not None:
-                print("Usage:", chunk.usage)
+                print("usage:", chunk.usage)
+
+    # ストリーミングモードでのTool Callingテスト2
+    if True:
+        stream = client.chat_stream(
+            types_chat.ChatRequest(
+                messages=[
+                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
+                    {"role": "user", "content": "東京の天気を教えてください"},
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": "call_qaxHS0I7vEg7aBTahgrq2754",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "東京"}',
+                                },
+                            }
+                        ],
+                    },
+                    {
+                        "role": "tool",
+                        "tool_call_id": "call_qaxHS0I7vEg7aBTahgrq2754",
+                        "content": "晴れ",
+                    },
+                ],
+                model=model,
+                temperature=0.7,
+                max_completion_tokens=500,
+                stream=True,
+                tools=[
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "description": "指定された場所の現在の天気を取得する",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "location": {
+                                        "type": "string",
+                                        "description": "天気を知りたい場所（例：東京、大阪）",
+                                    }
+                                },
+                                "required": ["location"],
+                            },
+                        },
+                    }
+                ],
+            )
+        )
+        async for chunk in stream:
+            if len(chunk.choices) > 0:
+                delta = chunk.choices[0].delta
+                if delta.content is not None:
+                    print("delta.content:", delta.content)
+                if delta.tool_calls is not None:
+                    print(
+                        "delta.tool_calls:",
+                        [
+                            tool_call.model_dump(exclude_none=True)
+                            for tool_call in delta.tool_calls
+                        ],
+                    )
+            if chunk.usage is not None:
+                print("usage:", chunk.usage)
 
 
 if __name__ == "__main__":

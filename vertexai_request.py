@@ -109,13 +109,35 @@ def make_generation_config(
                 )
         generation_config.tools = tools
 
-    if not isinstance(request.tool_choice, NotGiven) and request.tool_choice != "auto":
-        if request.tool_choice["type"] == "function":
+    if not isinstance(request.tool_choice, NotGiven):
+        if isinstance(request.tool_choice, dict):
+            if request.tool_choice.get("type") != "function":
+                raise ValueError(f"Unsupported tool choice: {request.tool_choice}")
             generation_config.tool_config = google.genai.types.ToolConfig(
                 function_call_behavior=google.genai.types.FunctionCall(  # type: ignore
-                    name=request.tool_choice["function"]["name"]
+                    name=request.tool_choice.get("function", {}).get("name", "")
                 )
             )
+        elif request.tool_choice == "none":
+            generation_config.tool_config = google.genai.types.ToolConfig(
+                function_call_behavior=google.genai.types.FunctionCall(
+                    name=google.genai.types.FunctionCallingConfigMode.NONE
+                )
+            )
+        elif request.tool_choice == "auto":
+            generation_config.tool_config = google.genai.types.ToolConfig(
+                function_call_behavior=google.genai.types.FunctionCall(
+                    name=google.genai.types.FunctionCallingConfigMode.AUTO
+                )
+            )
+        elif request.tool_choice == "required":
+            generation_config.tool_config = google.genai.types.ToolConfig(
+                function_call_behavior=google.genai.types.FunctionCall(
+                    name=google.genai.types.FunctionCallingConfigMode.ANY
+                )
+            )
+        else:
+            raise ValueError(f"Unsupported tool choice: {request.tool_choice}")
 
     if not isinstance(request.top_logprobs, NotGiven):
         generation_config.logprobs = request.top_logprobs

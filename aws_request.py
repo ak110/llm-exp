@@ -9,7 +9,7 @@ import typing
 
 import openai.types.chat
 import pytilpack.data_url
-import types_aiobotocore_bedrock_runtime.type_defs
+import types_aiobotocore_bedrock_runtime.type_defs as bedrock_types
 from openai._types import NotGiven
 
 import types_chat
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def make_inference_config(
     request: types_chat.ChatRequest,
-) -> types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef:
+) -> bedrock_types.InferenceConfigurationTypeDef:
     """推論設定を作成。"""
     # 未サポートのパラメータをチェック
     if not isinstance(request.response_format, NotGiven):
@@ -43,9 +43,7 @@ def make_inference_config(
     if not isinstance(request.top_logprobs, NotGiven):
         logger.warning("top_logprobs is not supported in AWS Bedrock implementation")
 
-    inference_config: (
-        types_aiobotocore_bedrock_runtime.type_defs.InferenceConfigurationTypeDef
-    ) = {}
+    inference_config: bedrock_types.InferenceConfigurationTypeDef = {}
     if not isinstance(request.max_completion_tokens, NotGiven):
         inference_config["maxTokens"] = request.max_completion_tokens
     if not isinstance(request.stop, NotGiven):
@@ -62,13 +60,11 @@ def make_inference_config(
 def format_messages(
     messages: typing.Iterable[openai.types.chat.ChatCompletionMessageParam],
 ) -> tuple[
-    list[types_aiobotocore_bedrock_runtime.type_defs.MessageUnionTypeDef],
-    list[types_aiobotocore_bedrock_runtime.type_defs.SystemContentBlockTypeDef],
+    list[bedrock_types.MessageUnionTypeDef],
+    list[bedrock_types.SystemContentBlockTypeDef],
 ]:
     """メッセージをBedrockの形式に変換します。"""
-    formatted_messages: list[
-        types_aiobotocore_bedrock_runtime.type_defs.MessageUnionTypeDef
-    ] = []
+    formatted_messages: list[bedrock_types.MessageUnionTypeDef] = []
     for message in messages:
         if message["role"] == "tool":
             tool_result = to_bedrock_tool_result(message)
@@ -93,9 +89,7 @@ def format_messages(
     system = sum(
         [
             typing.cast(
-                list[
-                    types_aiobotocore_bedrock_runtime.type_defs.SystemContentBlockTypeDef
-                ],
+                list[bedrock_types.SystemContentBlockTypeDef],
                 to_bedrock_content_blocks(message["content"]),
             )
             for message in messages
@@ -110,30 +104,35 @@ def format_messages(
 def make_tool_config(
     tools: typing.Iterable[openai.types.chat.ChatCompletionToolParam] | NotGiven,
     tool_choice: openai.types.chat.ChatCompletionToolChoiceOptionParam | NotGiven,
-) -> types_aiobotocore_bedrock_runtime.type_defs.ToolConfigurationTypeDef | None:
+) -> bedrock_types.ToolConfigurationTypeDef | None:
     """ツール設定を作成。"""
     if isinstance(tools, NotGiven):
         return None
-    if not isinstance(tools, list):
-        raise ValueError(f"tools must be a list. {tools=}")
+    tools = list(tools)  # pydantic_core._pydantic_core.ValidatorIterator対策(?)
     if len(tools) == 0:
         return None  # ツールなし
 
-    bedrock_tools: list[types_aiobotocore_bedrock_runtime.type_defs.ToolTypeDef] = []
+    bedrock_tools: list[bedrock_types.ToolTypeDef] = []
     for tool in tools:
         if not isinstance(tool, dict):
             raise ValueError(f"Each tool must be a dict. {tool=}")
+        function = tool.get("function")
+        if function is None:
+            raise ValueError(f"Tool must have 'function'. {tool=}")
+
         bedrock_tools.append(
             {
-                "name": tool.get("name", ""),
-                "description": tool.get("description", ""),
-                "inputSchema": tool.get("input_schema", {}),
+                "toolSpec": {
+                    "name": function.get("name", ""),
+                    "description": function.get("description", ""),
+                    "inputSchema": {"json": function.get("parameters", {})},
+                }
             }
         )
 
-    bedrock_tool_choice: types_aiobotocore_bedrock_runtime.type_defs.ToolChoiceTypeDef
+    bedrock_tool_choice: bedrock_types.ToolChoiceTypeDef
     if isinstance(tool_choice, NotGiven):
-        bedrock_tool_choice = {"type": "auto"}
+        bedrock_tool_choice = {"auto": {}}
     elif isinstance(tool_choice, dict):
         if tool_choice.get("type") != "function":
             raise ValueError(f"Invalid tool_choice: {tool_choice=}")
@@ -154,10 +153,16 @@ def make_tool_config(
 
 def to_bedrock_userassistant_message(
     message: openai.types.chat.ChatCompletionMessageParam,
-) -> types_aiobotocore_bedrock_runtime.type_defs.MessageUnionTypeDef:
+) -> bedrock_types.MessageUnionTypeDef:
     """ユーザー/アシスタントメッセージをBedrock形式に変換。"""
     role = typing.cast(typing.Literal["assistant", "user"], message["role"])
-    content = to_bedrock_content_blocks(message["content"])
+    bedrock_content: list[
+        bedrock_types.ContentBlockUnionTypeDef | bedrock_types.ContentBlockOutputTypeDef
+    ] = []
+
+    content = message.get("content")
+    if content is not None:
+        bedrock_content.extend(to_bedrock_content_blocks(content))
 
     # audio
     audio = message.get("audio")
@@ -187,7 +192,7 @@ def to_bedrock_userassistant_message(
         except json.JSONDecodeError:
             parsed_args = {}
 
-        content.append(
+        bedrock_content.append(
             {
                 "toolUse": {
                     "toolUseId": tool_call["id"],
@@ -201,18 +206,18 @@ def to_bedrock_userassistant_message(
     refusal = message.get("refusal")
     if refusal is not None:
         content.append({"guardContent": {"text": refusal}})
-    return {"role": role, "content": content}
+    return {"role": role, "content": bedrock_content}
 
 
 def to_bedrock_tool_result(
     message: openai.types.chat.ChatCompletionToolMessageParam,
-) -> types_aiobotocore_bedrock_runtime.type_defs.ContentBlockTypeDef:
+) -> bedrock_types.ContentBlockTypeDef:
     """ツール結果メッセージをBedrock形式に変換。"""
     tool_call_id = message.get("tool_call_id")
     if tool_call_id is None:
         raise ValueError(f"Tool message must have 'tool_call_id'. {message=}")
     content = typing.cast(
-        list[types_aiobotocore_bedrock_runtime.type_defs.ToolResultContentBlockTypeDef],
+        list[bedrock_types.ToolResultContentBlockTypeDef],
         to_bedrock_content_blocks(message["content"], unjsonify=True),
     )
     return {
@@ -239,7 +244,7 @@ def to_bedrock_content_blocks(
         | None
     ),
     unjsonify: bool = False,
-) -> list[types_aiobotocore_bedrock_runtime.type_defs.ContentBlockTypeDef]:
+) -> list[bedrock_types.ContentBlockTypeDef]:
     """コンテンツをBedrock形式のブロックリストに変換。"""
     if value is None:
         return []
@@ -260,7 +265,7 @@ def to_bedrock_content_block(
         | openai.types.chat.chat_completion_tool_message_param.ChatCompletionContentPartTextParam
     ),
     unjsonify: bool = False,
-) -> types_aiobotocore_bedrock_runtime.type_defs.ContentBlockTypeDef:
+) -> bedrock_types.ContentBlockTypeDef:
     """OpenAIのコンテンツをBedrockの形式に変換します。"""
 
     # class ContentBlockTypeDef(TypedDict):
@@ -287,9 +292,9 @@ def to_bedrock_content_block(
                     data = json.loads(text)
                     # 偶然の一致を避けるため一応dict/listのみにする
                     if isinstance(data, (dict, list)):
-                        content_block: (
-                            types_aiobotocore_bedrock_runtime.type_defs.ToolResultContentBlockTypeDef
-                        ) = {"json": data}
+                        content_block: bedrock_types.ToolResultContentBlockTypeDef = {
+                            "json": data
+                        }
                         return content_block
                 except json.JSONDecodeError:
                     pass
