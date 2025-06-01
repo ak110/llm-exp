@@ -17,6 +17,26 @@ import types_chat
 logger = logging.getLogger(__name__)
 
 
+def convert_request(
+    request: types_chat.ChatRequest,
+) -> bedrock_types.ConverseRequestTypeDef:
+    """リクエストをAWS Bedrockの形式に変換します。"""
+    messages, system = format_messages(request.messages)
+    inference_config = make_inference_config(request)
+    tool_config = make_tool_config(request.tools, request.tool_choice)
+    kwargs: bedrock_types.ConverseRequestTypeDef = {
+        "modelId": request.model,
+        "messages": messages,
+        "system": system,
+        "inferenceConfig": inference_config,
+        # "additionalModelRequestFields": {},
+        # "guardrailConfig": {"guardrailVersion": "", "guardrailIdentifier": ""},
+    }
+    if tool_config is not None:
+        kwargs["toolConfig"] = tool_config
+    return kwargs
+
+
 def make_inference_config(
     request: types_chat.ChatRequest,
 ) -> bedrock_types.InferenceConfigurationTypeDef:
@@ -44,16 +64,22 @@ def make_inference_config(
         logger.warning("top_logprobs is not supported in AWS Bedrock implementation")
 
     inference_config: bedrock_types.InferenceConfigurationTypeDef = {}
-    if not isinstance(request.max_completion_tokens, NotGiven):
+    if (
+        not isinstance(request.max_completion_tokens, NotGiven)
+        and request.max_completion_tokens is not None
+    ):
         inference_config["maxTokens"] = request.max_completion_tokens
     if not isinstance(request.stop, NotGiven):
         inference_config["stopSequences"] = (
             request.stop if isinstance(request.stop, list) else [request.stop]
         )
-    if not isinstance(request.temperature, NotGiven):
+    if (
+        not isinstance(request.temperature, NotGiven)
+        and request.temperature is not None
+    ):
         inference_config["temperature"] = request.temperature
-    if not isinstance(request.top_p, NotGiven):
-        inference_config["topP"] = request.top_p
+    if not isinstance(request.top_p, NotGiven) and request.top_p is not None:
+        inference_config["topP"] = float(request.top_p)
     return inference_config
 
 
@@ -292,10 +318,10 @@ def to_bedrock_content_block(
                     data = json.loads(text)
                     # 偶然の一致を避けるため一応dict/listのみにする
                     if isinstance(data, (dict, list)):
-                        content_block: bedrock_types.ToolResultContentBlockTypeDef = {
-                            "json": data
-                        }
-                        return content_block
+                        tool_result_content_block: (
+                            bedrock_types.ToolResultContentBlockTypeDef
+                        ) = {"json": data}
+                        return {"toolResult": tool_result_content_block}
                 except json.JSONDecodeError:
                     pass
             return {"text": value["text"]}

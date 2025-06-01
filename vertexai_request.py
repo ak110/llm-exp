@@ -6,6 +6,7 @@ import typing
 
 import google.genai.types
 import openai.types.chat
+import openai.types.chat.chat_completion_content_part_param
 from openai._types import NotGiven
 
 import types_chat
@@ -13,9 +14,21 @@ import types_chat
 logger = logging.getLogger(__name__)
 
 
+def convert_request(
+    request: types_chat.ChatRequest,
+) -> tuple[
+    google.genai.types.GenerateContentConfig, list[google.genai.types.ContentUnion]
+]:
+    formatted_messages, system_instruction = format_messages(request.messages)
+    generation_config = make_generation_config(request)
+    if system_instruction is not None:
+        generation_config.system_instruction = system_instruction
+    return generation_config, formatted_messages
+
+
 def make_generation_config(
     request: types_chat.ChatRequest,
-) -> google.genai.types.GenerateContentConfigOrDict:
+) -> google.genai.types.GenerateContentConfig:
     """生成設定を作成します。"""
     generation_config = google.genai.types.GenerateContentConfig()
 
@@ -92,7 +105,7 @@ def make_generation_config(
         generation_config.temperature = request.temperature
 
     if not isinstance(request.tools, NotGiven):
-        tools = []
+        tools: google.genai.types.ToolListUnion = []
         for tool in request.tools:
             if tool["type"] == "function":
                 function = tool["function"]
@@ -102,7 +115,7 @@ def make_generation_config(
                             google.genai.types.FunctionDeclaration(
                                 name=function.get("name", ""),
                                 description=function.get("description", ""),
-                                parameters=function.get("parameters", {}),
+                                parameters=function.get("parameters"),  # type: ignore
                             )
                         ]
                     )
@@ -114,26 +127,28 @@ def make_generation_config(
             if request.tool_choice.get("type") != "function":
                 raise ValueError(f"Unsupported tool choice: {request.tool_choice}")
             generation_config.tool_config = google.genai.types.ToolConfig(
-                function_call_behavior=google.genai.types.FunctionCall(  # type: ignore
-                    name=request.tool_choice.get("function", {}).get("name", "")
+                function_calling_config=google.genai.types.FunctionCallingConfig(
+                    allowed_function_names=[
+                        request.tool_choice.get("function", {}).get("name", "")
+                    ]
                 )
             )
         elif request.tool_choice == "none":
             generation_config.tool_config = google.genai.types.ToolConfig(
-                function_call_behavior=google.genai.types.FunctionCall(
-                    name=google.genai.types.FunctionCallingConfigMode.NONE
+                function_calling_config=google.genai.types.FunctionCallingConfig(
+                    mode=google.genai.types.FunctionCallingConfigMode.NONE
                 )
             )
         elif request.tool_choice == "auto":
             generation_config.tool_config = google.genai.types.ToolConfig(
-                function_call_behavior=google.genai.types.FunctionCall(
-                    name=google.genai.types.FunctionCallingConfigMode.AUTO
+                function_calling_config=google.genai.types.FunctionCallingConfig(
+                    mode=google.genai.types.FunctionCallingConfigMode.AUTO
                 )
             )
         elif request.tool_choice == "required":
             generation_config.tool_config = google.genai.types.ToolConfig(
-                function_call_behavior=google.genai.types.FunctionCall(
-                    name=google.genai.types.FunctionCallingConfigMode.ANY
+                function_calling_config=google.genai.types.FunctionCallingConfig(
+                    mode=google.genai.types.FunctionCallingConfigMode.ANY
                 )
             )
         else:
@@ -160,24 +175,24 @@ def format_messages(
 ) -> tuple[list[google.genai.types.ContentUnion], str | None]:
     """メッセージをVertex AI（Gemini）の形式に変換します。"""
     formatted_messages: list[google.genai.types.ContentUnion] = []
-    system_instruction: str | None = None
+    system_instruction_parts: list[str] = []
 
     for message in messages:
         role = message.get("role")
         if role in ("system", "developer"):
             # システムメッセージは system_instruction として扱う
-            content = message.get("content")
-            if content is not None:
-                if isinstance(content, str):
-                    system_instruction = content
-                elif isinstance(content, typing.Iterable):
+            system_content = message.get("content")
+            if system_content is not None:
+                if isinstance(system_content, str):
+                    system_instruction_parts.append(system_content)
+                elif isinstance(system_content, typing.Iterable):
                     # システムメッセージが複数のパートを持つ場合
-                    system_instruction = "\n".join(
-                        part.get("text", "") for part in content
+                    system_instruction_parts.extend(
+                        part.get("text", "") for part in system_content  # type: ignore
                     )
                 else:
                     logger.warning(
-                        f"System message content is not a string: {content=}. "
+                        f"System message content is not a string: {system_content=}. "
                         "Skipping system message."
                     )
         elif role in ("user", "assistant"):
@@ -197,7 +212,7 @@ def format_messages(
                 | None
             ) = message.get("content")
 
-            if content:
+            if content is not None:
                 if isinstance(content, str):
                     parts.append(google.genai.types.Part(text=content))
                 elif isinstance(content, list):
@@ -219,32 +234,46 @@ def format_messages(
                                     )
                                 )
                             else:
-                                parts.append(google.genai.types.Part(uri=image_url))
+                                raise ValueError(
+                                    f"Unsupported image URL: {image_url}. "
+                                    "Expected inline data."
+                                )
                         elif part.get("type") == "file":
                             # ファイル添付の処理
-                            logger.warning(
+                            raise ValueError(
                                 "File attachments are not fully supported yet"
                             )
                         else:
-                            logger.warning(f"Unsupported content part type: {part=}")
+                            raise ValueError(f"Unsupported content part: {part}")
+                else:
+                    raise ValueError(
+                        f"Unsupported content: {content}. "
+                        "Expected str or list of content parts."
+                    )
 
             # ツール呼び出しの処理（アシスタントメッセージの場合）
             if role == "assistant":
-                tool_calls = message.get("tool_calls", [])
-                for tool_call in tool_calls:
-                    if tool_call.get("type") == "function":
-                        function = tool_call.get("function", {})
-                        # ツール呼び出しをPartとして追加
-                        parts.append(
-                            google.genai.types.Part(
-                                function_call=google.genai.types.FunctionCall(
-                                    name=function.get("name", ""),
-                                    args=json.loads(function.get("arguments", "{}")),
+                tool_calls = message.get("tool_calls")
+                if tool_calls is not None:
+                    for tool_call in typing.cast(
+                        list[openai.types.chat.ChatCompletionMessageToolCallParam],
+                        tool_calls,
+                    ):
+                        if tool_call.get("type") == "function":
+                            function = tool_call.get("function", {})
+                            # ツール呼び出しをPartとして追加
+                            parts.append(
+                                google.genai.types.Part(
+                                    function_call=google.genai.types.FunctionCall(
+                                        name=function.get("name", ""),
+                                        args=json.loads(
+                                            function.get("arguments", "{}")
+                                        ),
+                                    )
                                 )
                             )
-                        )
-                    else:
-                        logger.warning(f"Unsupported tool call: {tool_call=}")
+                        else:
+                            raise ValueError(f"Unsupported tool call: {tool_call=}")
 
             if len(parts) > 0:
                 formatted_messages.append(
@@ -274,19 +303,6 @@ def format_messages(
                     response_content: str = ""
 
                 # FunctionResponseとしてPartsに追加
-
-                # 参考:
-                # class FunctionResponseScheduling(_common.CaseInSensitiveEnum):
-                #   """会話における応答のスケジュール方法を指定します。"""
-                #   SCHEDULING_UNSPECIFIED = 'SCHEDULING_UNSPECIFIED'
-                #   """この値は使用されません。"""
-                #   SILENT = 'SILENT'
-                #   """結果を会話コンテキストに追加するだけで、進行中の処理を中断したり生成を開始させたりしません。"""
-                #   WHEN_IDLE = 'WHEN_IDLE'
-                #   """結果を会話コンテキストに追加し、進行中の生成処理を中断せずに出力生成を促すプロンプトを表示します。"""
-                #   INTERRUPT = 'INTERRUPT'
-                #   """結果を会話コンテキストに追加し、進行中の生成処理を中断した上で出力生成を促すプロンプトを表示します。"""
-
                 parts = [
                     google.genai.types.Part(
                         function_response=google.genai.types.FunctionResponse(
@@ -299,8 +315,13 @@ def format_messages(
                     google.genai.types.Content(role="user", parts=parts)
                 )
         else:
-            # role == "function"は未サポート
-            logger.warning(f"Unsupported message: {message=}")
+            raise ValueError(f"Unsupported message: {message=}")
+
+    system_instruction = (
+        "\n".join(system_instruction_parts)
+        if len(system_instruction_parts) > 0
+        else None
+    )
 
     return formatted_messages, system_instruction
 

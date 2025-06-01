@@ -46,9 +46,7 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。"""
         assert self.session is not None
         assert not request.stream
-        messages, system = aws_request.format_messages(request.messages)
-        inference_config = aws_request.make_inference_config(request)
-        tool_config = aws_request.make_tool_config(request.tools, request.tool_choice)
+        kwargs = aws_request.convert_request(request)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -61,16 +59,8 @@ class AWSClient:
             aws_session_token=credentials.token,
             aws_account_id=credentials.account_id,
         ) as bedrock:
-            response = await bedrock.converse(
-                modelId=request.model,
-                messages=messages,
-                system=system,
-                inferenceConfig=inference_config,
-                additionalModelRequestFields={},
-                # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
-                toolConfig=tool_config,
-            )
-            return await aws_response.process_non_streaming_response(request, response)
+            response = await bedrock.converse(**kwargs)
+            return aws_response.process_non_streaming_response(request, response)
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -78,9 +68,7 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。(ストリーミング版)"""
         assert self.session is not None
         assert request.stream
-        messages, system = aws_request.format_messages(request.messages)
-        inference_config = aws_request.make_inference_config(request)
-        tool_config = aws_request.make_tool_config(request.tools, request.tool_choice)
+        kwargs = aws_request.convert_request(request)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -93,17 +81,10 @@ class AWSClient:
             aws_session_token=credentials.token,
             aws_account_id=credentials.account_id,
         ) as bedrock:
-            response = await bedrock.converse_stream(
-                modelId=request.model,
-                messages=messages,
-                system=system,
-                inferenceConfig=inference_config,
-                additionalModelRequestFields={},
-                # guardrailConfig={"guardrailVersion": "", "guardrailIdentifier": ""},
-                toolConfig=tool_config,
-            )
+            response = await bedrock.converse_stream(**kwargs)
             async for event in response["stream"]:
-                if chunk := aws_response.process_stream_event(request, event):
+                chunk = aws_response.process_stream_event(request, event)
+                if chunk is not None:
                     yield chunk
 
 
@@ -131,7 +112,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if False:
+    if True:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[

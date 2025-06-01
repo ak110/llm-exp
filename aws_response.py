@@ -49,7 +49,7 @@ def process_non_streaming_response(
     # メッセージ作成
     openai_message = openai.types.chat.ChatCompletionMessage(
         role="assistant",
-        content=" ".join(openai_content) if openai_content else None,
+        content="\n".join(openai_content) if openai_content else None,
         tool_calls=tool_calls if tool_calls else None,
     )
 
@@ -109,192 +109,152 @@ def process_stream_event(
         logger.error(f"Service unavailable exception: {error_msg}")
         return None
 
+    chunk = openai.types.chat.ChatCompletionChunk(
+        id=str(uuid.uuid4()),
+        choices=[],
+        created=int(time.time()),
+        model=request.model,
+        object="chat.completion.chunk",
+    )
+
     # メッセージ開始イベント
-    if "messageStart" in event_data:
-        # OpenAIではmessageStartに相当するイベントは無いが、roleを含むchunkを返す
-        message_start: bedrock_types.MessageStartEventTypeDef = event_data[
-            "messageStart"
-        ]
+    # OpenAIではmessageStartに相当するイベントは無いが、roleを含むchunkを返す
+    message_start: bedrock_types.MessageStartEventTypeDef | None = event_data.get(
+        "messageStart"
+    )
+    if message_start is not None:
         role = message_start.get("role", "assistant")
-        return openai.types.chat.ChatCompletionChunk(
-            id=str(uuid.uuid4()),
-            choices=[{"delta": {"role": role}, "finish_reason": None, "index": 0}],
-            created=int(time.time()),
-            model=request.model,
-            object="chat.completion.chunk",
+        chunk.choices.append(
+            openai.types.chat.chat_completion_chunk.Choice(
+                index=0,
+                delta=openai.types.chat.chat_completion_chunk.ChoiceDelta(role=role),
+            )
         )
 
     # コンテンツブロック開始イベント
-    if "contentBlockStart" in event_data:
-        content_block_start: bedrock_types.ContentBlockStartEventTypeDef = event_data[
-            "contentBlockStart"
-        ]
+    content_block_start: bedrock_types.ContentBlockStartEventTypeDef | None = (
+        event_data.get("contentBlockStart")
+    )
+    if content_block_start is not None:
         start_data: bedrock_types.ContentBlockStartTypeDef = content_block_start.get(
             "start", {}
         )
-        content_block_index = start_data.get("contentBlockIndex", 0)
+        content_block_index = content_block_start.get("contentBlockIndex", 0)
+        chunk.choices.append(
+            openai.types.chat.chat_completion_chunk.Choice(
+                index=content_block_index,
+                delta=openai.types.chat.chat_completion_chunk.ChoiceDelta(),
+            )
+        )
 
         # ツール使用の開始
-        if "toolUse" in start_data:
-            tool_use: bedrock_types.ToolUseBlockStartTypeDef = start_data["toolUse"]
-            return openai.types.chat.ChatCompletionChunk(
-                id=str(uuid.uuid4()),
-                choices=[
-                    {
-                        "index": content_block_index,
-                        "delta": {
-                            "tool_calls": [
-                                {
-                                    "index": 0,
-                                    "id": tool_use.get("toolUseId"),
-                                    "type": "function",
-                                    "function": {
-                                        "name": tool_use.get("name", ""),
-                                        "arguments": "",
-                                    },
-                                }
-                            ]
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-                created=int(time.time()),
-                model=request.model,
-                object="chat.completion.chunk",
+        tool_use_block_start: bedrock_types.ToolUseBlockStartTypeDef | None = (
+            start_data.get("toolUse")
+        )
+        if tool_use_block_start is not None:
+            chunk.choices[-1].delta = (
+                openai.types.chat.chat_completion_chunk.ChoiceDelta(
+                    tool_calls=[
+                        openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCall(
+                            index=0,
+                            id=tool_use_block_start.get("toolUseId"),
+                            type="function",
+                            function=openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCallFunction(
+                                name=tool_use_block_start.get("name", ""), arguments=""
+                            ),
+                        )
+                    ]
+                )
             )
 
-        # 他のブロック開始は特に処理しない（テキストブロックなど）
-        return None
-
     # コンテンツブロック差分イベント（メインのストリーミングコンテンツ）
-    if "contentBlockDelta" in event_data:
-        content_block_delta: bedrock_types.ContentBlockDeltaEventTypeDef = event_data[
-            "contentBlockDelta"
-        ]
+    content_block_delta: bedrock_types.ContentBlockDeltaEventTypeDef | None = (
+        event_data.get("contentBlockDelta")
+    )
+    if content_block_delta is not None:
         delta: bedrock_types.ContentBlockDeltaTypeDef = content_block_delta.get(
             "delta", {}
         )
         content_block_index = content_block_delta.get("contentBlockIndex", 0)
+        chunk.choices.append(
+            openai.types.chat.chat_completion_chunk.Choice(
+                index=content_block_index,
+                delta=openai.types.chat.chat_completion_chunk.ChoiceDelta(),
+            )
+        )
+        text_contents: list[str] = []
 
         # テキストデルタ
-        if "text" in delta:
-            return openai.types.chat.ChatCompletionChunk(
-                id=str(uuid.uuid4()),
-                choices=[
-                    {
-                        "delta": {"content": delta["text"]},
-                        "finish_reason": None,
-                        "index": 0,
-                    }
-                ],
-                created=int(time.time()),
-                model=request.model,
-                object="chat.completion.chunk",
-            )
+        delta_text = delta.get("text")
+        if delta_text is not None:
+            text_contents.append(delta_text)
 
         # ツール使用デルタ
-        if "toolUse" in delta:
-            tool_use_delta: bedrock_types.ToolUseBlockDeltaTypeDef = delta["toolUse"]
-            return openai.types.chat.ChatCompletionChunk(
-                id=str(uuid.uuid4()),
-                choices=[
-                    {
-                        "index": content_block_index,
-                        "delta": {
-                            "tool_calls": [
-                                {
-                                    "index": 0,
-                                    "function": {
-                                        "arguments": tool_use_delta.get("input", "")
-                                    },
-                                }
-                            ]
-                        },
-                        "finish_reason": None,
-                    }
-                ],
-                created=int(time.time()),
-                model=request.model,
-                object="chat.completion.chunk",
-            )
+        tool_use_delta: bedrock_types.ToolUseBlockDeltaTypeDef | None = delta.get(
+            "toolUse"
+        )
+        if tool_use_delta is not None:
+            chunk.choices[-1].delta.tool_calls = [
+                openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCall(
+                    index=0,
+                    type="function",
+                    function=openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCallFunction(
+                        arguments=tool_use_delta.get("input", "")
+                    ),
+                )
+            ]
 
         # 推論コンテンツデルタ（Claude 3.5 Sonnetなどの場合）
-        if "reasoningContent" in delta:
-            reasoning_delta = delta["reasoningContent"]
-            # 推論内容はOpenAI APIには直接対応するものが無いが、contentとして扱う
-            if "text" in reasoning_delta:
-                return openai.types.chat.ChatCompletionChunk(
-                    id=str(uuid.uuid4()),
-                    choices=[
-                        {
-                            "delta": {"content": reasoning_delta["text"]},
-                            "finish_reason": None,
-                            "index": 0,
-                        }
-                    ],
-                    created=int(time.time()),
-                    model=request.model,
-                    object="chat.completion.chunk",
-                )
+        # 推論内容はOpenAI APIには直接対応するものが無いが、contentとして扱う
+        reasoning_delta = delta.get("reasoningContent")
+        if reasoning_delta is not None:
+            reasoning_text = reasoning_delta.get("text")
+            if reasoning_text is not None:
+                text_contents.append(reasoning_text)
 
-        # その他のデルタは無視
-        return None
+        if len(text_contents) > 0:
+            chunk.choices[-1].delta.content = "\n".join(text_contents)
 
     # コンテンツブロック終了イベント
-    if "contentBlockStop" in event_data:
-        # OpenAIではコンテンツブロック単位の終了イベントは無いので無視
-        return None
+    # if "contentBlockStop" in event_data:
 
     # メッセージ終了イベント
-    if "messageStop" in event_data:
-        stop_reason = event_data["messageStop"].get("stopReason")
-        return openai.types.chat.ChatCompletionChunk(
-            id=str(uuid.uuid4()),
-            choices=[
-                {
-                    "delta": {},
-                    "finish_reason": _convert_finish_reason(stop_reason),
-                    "index": 0,
-                }
-            ],
-            created=int(time.time()),
-            model=request.model,
-            object="chat.completion.chunk",
+    message_stop: bedrock_types.MessageStopEventTypeDef | None = event_data.get(
+        "messageStop"
+    )
+    if message_stop is not None:
+        chunk.choices.append(
+            openai.types.chat.chat_completion_chunk.Choice(
+                index=0,
+                delta=openai.types.chat.chat_completion_chunk.ChoiceDelta(),
+                finish_reason=_convert_finish_reason(message_stop.get("stopReason")),
+            )
         )
+        # message_stop["additionalModelResponseFields"]
 
     # メタデータイベント
     if "metadata" in event_data:
-        metadata = event_data["metadata"]
-        usage = None
-
-        if "usage" in metadata:
-            bedrock_usage = metadata["usage"]
-            usage = openai.types.completion_usage.CompletionUsage.model_construct(
+        metadata: bedrock_types.ConverseStreamMetadataEventTypeDef = event_data[
+            "metadata"
+        ]
+        bedrock_usage: bedrock_types.TokenUsageTypeDef | None = metadata.get("usage")
+        if bedrock_usage is not None:
+            cached_tokens = bedrock_usage.get("cacheReadInputTokens")  # type: ignore
+            chunk.usage = openai.types.completion_usage.CompletionUsage(
                 prompt_tokens=bedrock_usage.get("inputTokens", 0),
                 completion_tokens=bedrock_usage.get("outputTokens", 0),
                 total_tokens=bedrock_usage.get("totalTokens", 0),
                 # 可能ならキャッシュトークン情報も含める
                 prompt_tokens_details=(
-                    openai.types.completion_usage.PromptTokensDetails.model_construct(
-                        cached_tokens=bedrock_usage.get("cacheReadInputTokens", 0)
+                    openai.types.completion_usage.PromptTokensDetails(
+                        cached_tokens=typing.cast(int, cached_tokens)
                     )
-                    if "cacheReadInputTokens" in bedrock_usage
+                    if cached_tokens is not None
                     else None
                 ),
             )
 
-        return openai.types.chat.ChatCompletionChunk(
-            id=str(uuid.uuid4()),
-            choices=[],  # OpenAI APIではusage情報の際はchoicesは空
-            created=int(time.time()),
-            model=request.model,
-            object="chat.completion.chunk",
-            usage=usage,
-        )
-
-    # 処理されないイベントタイプ
-    logger.debug(f"Unhandled stream event type: {list(event_data.keys())}")
-    return None
+    return chunk
 
 
 def _convert_finish_reason(
@@ -303,7 +263,7 @@ def _convert_finish_reason(
     """stopReasonをOpenAIのfinish_reasonに変換する。"""
     if stop_reason is None:
         return None
-    return {
+    return {  # type: ignore[return-value]
         "end_turn": "stop",
         "tool_use": "tool_calls",
         "max_tokens": "length",

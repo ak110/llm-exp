@@ -36,16 +36,9 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        # メッセージの変換
-        formatted_messages, system_instruction = vertexai_request.format_messages(
-            request.messages
+        generation_config, formatted_messages = vertexai_request.convert_request(
+            request
         )
-        # 生成設定の作成
-        generation_config = vertexai_request.make_generation_config(request)
-        if system_instruction is not None:
-            generation_config.system_instruction = system_instruction
-
-        # Vertex AIでチャット生成を実行
         response = await client.aio.models.generate_content(
             model=request.model, contents=formatted_messages, config=generation_config
         )
@@ -65,31 +58,16 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        # メッセージの変換
-        formatted_messages, system_instruction = vertexai_request.format_messages(
-            request.messages
+        generation_config, formatted_messages = vertexai_request.convert_request(
+            request
         )
-
-        # システムメッセージがある場合は、最初のメッセージとして追加
-        if system_instruction:
-            formatted_messages.insert(
-                0,
-                google.genai.types.Content(
-                    role="user",
-                    parts=[google.genai.types.Part(text=system_instruction)],
-                ),
-            )
-
-        # 生成設定の作成
-        generation_config = vertexai_request.make_generation_config(request)
-
-        # Vertex AIでストリーミングチャット生成を実行
         stream = await client.aio.models.generate_content_stream(
             model=request.model, contents=formatted_messages, config=generation_config
         )
 
         async for response_chunk in stream:
-            if chunk := vertexai_response.process_stream_chunk(request, response_chunk):
+            chunk = vertexai_response.process_stream_chunk(request, response_chunk)
+            if chunk is not None:
                 yield chunk
 
 
@@ -117,7 +95,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if False:
+    if True:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[

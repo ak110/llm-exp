@@ -9,6 +9,8 @@ import uuid
 
 import google.genai.types
 import openai.types.chat
+import openai.types.chat.chat_completion
+import openai.types.chat.chat_completion_chunk
 import openai.types.completion_usage
 
 import types_chat
@@ -23,7 +25,7 @@ def process_non_streaming_response(
     """非ストリーミングレスポンスをOpenAI形式に変換します。"""
     logger.debug(f"{response=}")
 
-    choices = []
+    choices: list[openai.types.chat.chat_completion.Choice] = []
     if response.candidates:
         for i, candidate in enumerate(response.candidates):
             openai_content: list[str] = []
@@ -31,9 +33,9 @@ def process_non_streaming_response(
 
             if candidate.content and candidate.content.parts:
                 for part in candidate.content.parts:
-                    if hasattr(part, "text") and part.text:
+                    if part.text is not None:
                         openai_content.append(part.text)
-                    elif hasattr(part, "function_call") and part.function_call:
+                    elif part.function_call is not None:
                         # ツール呼び出しの処理
                         tool_call = {
                             "id": secrets.token_urlsafe(8),
@@ -47,7 +49,7 @@ def process_non_streaming_response(
 
             message = {
                 "role": "assistant",
-                "content": " ".join(openai_content) if openai_content else None,
+                "content": "\n".join(openai_content) if openai_content else None,
             }
 
             if tool_calls:
@@ -75,36 +77,39 @@ def process_stream_chunk(
     """ストリームチャンクをOpenAI形式に変換します。"""
     logger.debug(f"Processing stream event: {chunk}")
 
-    choices = []
+    choices: list[openai.types.chat.chat_completion_chunk.Choice] = []
     if chunk.candidates:
-        for i, candidate in enumerate(chunk.candidates):
-            delta = {}
+        for candidate in chunk.candidates:
+            delta = openai.types.chat.chat_completion_chunk.ChoiceDelta()
 
             if candidate.content and candidate.content.parts:
-                content_parts = []
-                tool_calls = []
+                content_parts: list[str] = []
+                tool_calls: list[
+                    openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCall
+                ] = []
 
                 for part in candidate.content.parts:
-                    if hasattr(part, "text") and part.text:
+                    if part.text is not None:
                         content_parts.append(part.text)
-                    elif hasattr(part, "function_call") and part.function_call:
+                    if part.function_call is not None:
                         # ツール呼び出しの処理
-                        tool_call = {
-                            "index": len(tool_calls),
-                            "id": secrets.token_urlsafe(8),
-                            "type": "function",
-                            "function": {
-                                "name": part.function_call.name,
-                                "arguments": json.dumps(dict(part.function_call.args)),
-                            },
-                        }
-                        tool_calls.append(tool_call)
+                        tool_calls.append(
+                            openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCall(
+                                index=len(tool_calls),
+                                id=secrets.token_urlsafe(8),
+                                type="function",
+                                function=openai.types.chat.chat_completion_chunk.ChoiceDeltaFunctionCall(
+                                    name=part.function_call.name,
+                                    arguments=json.dumps(dict(part.function_call.args)),
+                                ),
+                            )
+                        )
 
-                if content_parts:
-                    delta["content"] = " ".join(content_parts)
+                if len(content_parts) > 0:
+                    delta.content = "\n".join(content_parts)
 
                 if tool_calls:
-                    delta["tool_calls"] = tool_calls
+                    delta.tool_calls = tool_calls
 
             finish_reason = (
                 _convert_finish_reason(candidate.finish_reason)
@@ -112,13 +117,17 @@ def process_stream_chunk(
                 else None
             )
 
-            choices.append({"index": i, "delta": delta, "finish_reason": finish_reason})
+            choices.append(
+                openai.types.chat.chat_completion_chunk.Choice(
+                    index=candidate.index, delta=delta, finish_reason=finish_reason
+                )
+            )
 
     if not choices:
         # 空のチャンクの場合はスキップ
         return None
 
-    return openai.types.chat.ChatCompletionChunk.model_construct(
+    return openai.types.chat.ChatCompletionChunk(
         id=str(uuid.uuid4()),
         object="chat.completion.chunk",
         choices=choices,

@@ -196,7 +196,7 @@ class ChatRequest(pydantic.BaseModel):
             for message in self.messages:
                 tool_calls = message.get("tool_calls")
                 if tool_calls is not None and isinstance(tool_calls, typing.Iterable):
-                    message["tool_calls"] = list(message["tool_calls"])
+                    message["tool_calls"] = list(message["tool_calls"])  # type: ignore
         if isinstance(self.tools, typing.Iterable):
             self.tools = list(self.tools)
 

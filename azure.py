@@ -181,7 +181,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if False:
+    if True:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
