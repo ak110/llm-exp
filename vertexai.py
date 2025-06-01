@@ -117,7 +117,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if True:
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
@@ -163,7 +163,7 @@ async def main() -> None:
                         ],
                     )
             if chunk.usage is not None:
-                print("usage:", chunk.usage)
+                print("usage:", chunk.usage.model_dump(exclude_none=True))
 
     # ストリーミングモードでのTool Callingテスト2
     if True:
@@ -230,7 +230,7 @@ async def main() -> None:
                         ],
                     )
             if chunk.usage is not None:
-                print("usage:", chunk.usage)
+                print("usage:", chunk.usage.model_dump(exclude_none=True))
 
 
 if __name__ == "__main__":

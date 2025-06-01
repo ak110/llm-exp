@@ -174,14 +174,13 @@ class ChatRequest(pydantic.BaseModel):
 
     @pydantic.model_validator(mode="after")
     def validate_after(self) -> typing.Self:
+        # max_tokens / max_completion_tokens
         has_max_tokens = not isinstance(self.max_tokens, NotGiven)
         has_max_completion_tokens = not isinstance(self.max_completion_tokens, NotGiven)
-
         if has_max_tokens and has_max_completion_tokens:
             raise ValueError(
                 "max_tokens と max_completion_tokens は同時に指定できません"
             )
-
         if has_max_tokens:
             warnings.warn(
                 "max_tokens は非推奨です。代わりに max_completion_tokens を使用してください。",
@@ -190,5 +189,15 @@ class ChatRequest(pydantic.BaseModel):
             )
             self.max_completion_tokens = self.max_tokens
             self.max_tokens = NOT_GIVEN
+
+        # Iterable to list
+        if isinstance(self.messages, typing.Iterable):
+            self.messages = list(self.messages)
+            for message in self.messages:
+                tool_calls = message.get("tool_calls")
+                if tool_calls is not None and isinstance(tool_calls, typing.Iterable):
+                    message["tool_calls"] = list(message["tool_calls"])
+        if isinstance(self.tools, typing.Iterable):
+            self.tools = list(self.tools)
 
         return self

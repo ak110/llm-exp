@@ -18,17 +18,8 @@ logger = logging.getLogger(__name__)
 def process_non_streaming_response(
     request: types_chat.ChatRequest, response: bedrock_types.ConverseResponseTypeDef
 ) -> openai.types.chat.ChatCompletion:
-    """非ストリーミングレスポンスをOpenAI形式に変換します。
-
-    Args:
-        response: Bedrockからのレスポンス
-        request: リクエスト情報
-
-    Returns:
-        ChatCompletion: OpenAI形式のレスポンス
-    """
+    """非ストリーミングレスポンスをOpenAI形式に変換します。"""
     logger.debug(f"{response=}")
-    print(f"{response=}")  # TODO: 仮
 
     # レスポンスメッセージの処理
     output = response.get("output", {})
@@ -36,12 +27,12 @@ def process_non_streaming_response(
     content_blocks = message.get("content", [])
 
     # OpenAI形式に変換
-    openai_message_content: list[str] = []
+    openai_content: list[str] = []
     tool_calls: list[openai.types.chat.ChatCompletionMessageToolCall] = []
 
     for content_block in content_blocks:
         if "text" in content_block:
-            openai_message_content.append(content_block["text"])
+            openai_content.append(content_block["text"])
         elif "toolUse" in content_block:
             tool_use = content_block["toolUse"]
             tool_calls.append(
@@ -58,7 +49,7 @@ def process_non_streaming_response(
     # メッセージ作成
     openai_message = openai.types.chat.ChatCompletionMessage(
         role="assistant",
-        content=" ".join(openai_message_content) if openai_message_content else None,
+        content=" ".join(openai_content) if openai_content else None,
         tool_calls=tool_calls if tool_calls else None,
     )
 
@@ -83,15 +74,7 @@ def process_stream_event(
     request: types_chat.ChatRequest,
     event_data: bedrock_types.ConverseStreamOutputTypeDef,
 ) -> openai.types.chat.ChatCompletionChunk | None:
-    """ストリームイベントをOpenAI形式のチャンクに変換します。
-
-    Args:
-        event_data: イベントデータ
-        request: リクエスト情報
-
-    Returns:
-        ChatCompletionChunk | None: OpenAI形式のチャンク。イベントが処理不要な場合はNone。
-    """
+    """ストリームイベントをOpenAI形式のチャンクに変換します。"""
     logger.debug(f"Processing stream event: {event_data}")
 
     # エラーイベントの処理

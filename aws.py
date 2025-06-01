@@ -52,8 +52,6 @@ class AWSClient:
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
-        print(f"{credentials=}")  # TODO: 仮
-        print(f"{credentials.account_id=}")
         session = aiobotocore.session.get_session()
         async with session.create_client(
             service_name="bedrock-runtime",
@@ -86,8 +84,6 @@ class AWSClient:
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
-        print(f"{credentials=}")  # TODO: 仮
-        print(f"{credentials.account_id=}")
         session = aiobotocore.session.get_session()
         async with session.create_client(
             service_name="bedrock-runtime",
@@ -181,7 +177,7 @@ async def main() -> None:
                         ],
                     )
             if chunk.usage is not None:
-                print("usage:", chunk.usage)
+                print("usage:", chunk.usage.model_dump(exclude_none=True))
 
     # ストリーミングモードでのTool Callingテスト2
     if True:
@@ -248,7 +244,7 @@ async def main() -> None:
                         ],
                     )
             if chunk.usage is not None:
-                print("usage:", chunk.usage)
+                print("usage:", chunk.usage.model_dump(exclude_none=True))
 
 
 if __name__ == "__main__":

@@ -292,12 +292,11 @@ def format_messages(
                         function_response=google.genai.types.FunctionResponse(
                             name=_find_tool_name_by_id(messages, tool_call_id),
                             response={"output": response_content},
-                            scheduling=google.genai.types.FunctionResponseScheduling.WHEN_IDLE,
                         )
                     )
                 ]
                 formatted_messages.append(
-                    google.genai.types.Content(role="model", parts=parts)
+                    google.genai.types.Content(role="user", parts=parts)
                 )
         else:
             # role == "function"は未サポート
@@ -313,8 +312,10 @@ def _find_tool_name_by_id(
     """ツール呼び出しIDからツール名を取得します。"""
     for message in messages:
         if message.get("role") == "assistant":
-            tool_calls = message.get("tool_calls", [])
+            tool_calls = list(message.get("tool_calls", []))
             for tool_call in tool_calls:
                 if tool_call.get("id") == tool_call_id:
                     return tool_call.get("function", {}).get("name", "")
-    return ""
+    raise ValueError(
+        f"Tool call ID '{tool_call_id}' not found in messages. {messages=}"
+    )

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import secrets
 import time
 import typing
 import uuid
@@ -20,23 +21,22 @@ def process_non_streaming_response(
     response: google.genai.types.GenerateContentResponse,
 ) -> openai.types.chat.ChatCompletion:
     """非ストリーミングレスポンスをOpenAI形式に変換します。"""
+    logger.debug(f"{response=}")
 
     choices = []
     if response.candidates:
         for i, candidate in enumerate(response.candidates):
-            content_parts = []
-            tool_calls = []
+            openai_content: list[str] = []
+            tool_calls: list[openai.types.chat.ChatCompletionMessageToolCall] = []
 
             if candidate.content and candidate.content.parts:
                 for part in candidate.content.parts:
                     if hasattr(part, "text") and part.text:
-                        content_parts.append(part.text)
+                        openai_content.append(part.text)
                     elif hasattr(part, "function_call") and part.function_call:
                         # ツール呼び出しの処理
                         tool_call = {
-                            "id": str(
-                                uuid.uuid4()
-                            ),  # Geminiではツール呼び出しIDがないので生成
+                            "id": secrets.token_urlsafe(8),
                             "type": "function",
                             "function": {
                                 "name": part.function_call.name,
@@ -47,7 +47,7 @@ def process_non_streaming_response(
 
             message = {
                 "role": "assistant",
-                "content": " ".join(content_parts) if content_parts else None,
+                "content": " ".join(openai_content) if openai_content else None,
             }
 
             if tool_calls:
@@ -73,6 +73,7 @@ def process_stream_chunk(
     request: types_chat.ChatRequest, chunk: google.genai.types.GenerateContentResponse
 ) -> openai.types.chat.ChatCompletionChunk | None:
     """ストリームチャンクをOpenAI形式に変換します。"""
+    logger.debug(f"Processing stream event: {chunk}")
 
     choices = []
     if chunk.candidates:
@@ -90,7 +91,7 @@ def process_stream_chunk(
                         # ツール呼び出しの処理
                         tool_call = {
                             "index": len(tool_calls),
-                            "id": str(uuid.uuid4()),
+                            "id": secrets.token_urlsafe(8),
                             "type": "function",
                             "function": {
                                 "name": part.function_call.name,
@@ -154,6 +155,13 @@ def _convert_usage(
 ):
     """usage_metadataをOpenAI形式に変換する。"""
     if usage_metadata is None:
+        return None
+    # 値がほぼ全部Noneの場合がある
+    if (
+        usage_metadata.prompt_token_count is None
+        and usage_metadata.candidates_token_count is None
+        and usage_metadata.total_token_count is None
+    ):
         return None
 
     # 例: https://ai.google.dev/gemini-api/docs/caching?hl=ja&lang=python
