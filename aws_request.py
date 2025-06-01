@@ -8,6 +8,9 @@ import pathlib
 import typing
 
 import openai.types.chat
+import openai.types.chat.chat_completion_assistant_message_param
+import openai.types.chat.chat_completion_content_part_param
+import openai.types.chat.chat_completion_tool_message_param
 import pytilpack.data_url
 import types_aiobotocore_bedrock_runtime.type_defs as bedrock_types
 from openai._types import NotGiven
@@ -17,14 +20,33 @@ import types_chat
 logger = logging.getLogger(__name__)
 
 
-def convert_request(
-    request: types_chat.ChatRequest,
-) -> bedrock_types.ConverseRequestTypeDef:
+class ConverseRequestTypeDef(typing.TypedDict):
+    """BedrockのConverse APIのリクエストの型定義。"""
+
+    modelId: str
+    messages: typing.NotRequired[typing.Sequence[bedrock_types.MessageUnionTypeDef]]
+    system: typing.NotRequired[typing.Sequence[bedrock_types.SystemContentBlockTypeDef]]
+    inferenceConfig: typing.NotRequired[bedrock_types.InferenceConfigurationTypeDef]
+    toolConfig: typing.NotRequired[bedrock_types.ToolConfigurationTypeDef]
+    # guardrailConfig: typing.NotRequired[
+    #     bedrock_types.GuardrailConfigurationTypeDef |
+    #     bedrock_types.GuardrailStreamConfigurationTypeDef
+    # ]
+    additionalModelRequestFields: typing.NotRequired[typing.Mapping[str, typing.Any]]
+    promptVariables: typing.NotRequired[
+        typing.Mapping[str, bedrock_types.PromptVariableValuesTypeDef]
+    ]
+    additionalModelResponseFieldPaths: typing.NotRequired[typing.Sequence[str]]
+    requestMetadata: typing.NotRequired[typing.Mapping[str, str]]
+    performanceConfig: typing.NotRequired[bedrock_types.PerformanceConfigurationTypeDef]
+
+
+def convert_request(request: types_chat.ChatRequest) -> ConverseRequestTypeDef:
     """リクエストをAWS Bedrockの形式に変換します。"""
     messages, system = format_messages(request.messages)
     inference_config = make_inference_config(request)
     tool_config = make_tool_config(request.tools, request.tool_choice)
-    kwargs: bedrock_types.ConverseRequestTypeDef = {
+    kwargs: ConverseRequestTypeDef = {
         "modelId": request.model,
         "messages": messages,
         "system": system,

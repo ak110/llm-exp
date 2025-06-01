@@ -3,7 +3,7 @@ name = "llm-exp"
 version = "0.1.0"
 description = "実験用コード置き場"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "aiobotocore>=2.22.0",
     "azure-identity>=1.23.0",

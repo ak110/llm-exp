@@ -293,7 +293,7 @@ def format_messages(
                 elif isinstance(content, typing.Iterable):
                     # 複数のパートがある場合はテキストを結合
                     response_content = "\n".join(
-                        part.get("text", "") for part in content
+                        part.get("text", "") for part in content  # type: ignore
                     )
                 else:
                     logger.warning(
