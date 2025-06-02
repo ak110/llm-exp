@@ -19,14 +19,14 @@ def convert_request(
 ) -> tuple[
     google.genai.types.GenerateContentConfig, list[google.genai.types.ContentUnion]
 ]:
-    formatted_messages, system_instruction = format_messages(request.messages)
-    generation_config = make_generation_config(request)
+    formatted_messages, system_instruction = _format_messages(request.messages)
+    generation_config = _make_generation_config(request)
     if system_instruction is not None:
         generation_config.system_instruction = system_instruction
     return generation_config, formatted_messages
 
 
-def make_generation_config(
+def _make_generation_config(
     request: types_chat.ChatRequest,
 ) -> google.genai.types.GenerateContentConfig:
     """生成設定を作成します。"""
@@ -170,7 +170,7 @@ def make_generation_config(
     return generation_config
 
 
-def format_messages(
+def _format_messages(
     messages: typing.Iterable[openai.types.chat.ChatCompletionMessageParam],
 ) -> tuple[list[google.genai.types.ContentUnion], str | None]:
     """メッセージをVertex AI（Gemini）の形式に変換します。"""
@@ -288,6 +288,7 @@ def format_messages(
             tool_call_id = tool_call_message.get("tool_call_id")
 
             if content is not None and tool_call_id is not None:
+                response_content: str = ""
                 if isinstance(content, str):
                     response_content = content
                 elif isinstance(content, typing.Iterable):
@@ -300,7 +301,6 @@ def format_messages(
                         f"Tool message content is not a string: {content=}. "
                         "Skipping tool message."
                     )
-                    response_content: str = ""
 
                 # FunctionResponseとしてPartsに追加
                 parts = [
@@ -333,6 +333,9 @@ def _find_tool_name_by_id(
     """ツール呼び出しIDからツール名を取得します。"""
     for message in messages:
         if message.get("role") == "assistant":
+            message = typing.cast(
+                openai.types.chat.ChatCompletionAssistantMessageParam, message
+            )
             tool_calls = list(message.get("tool_calls", []))
             for tool_call in tool_calls:
                 if tool_call.get("id") == tool_call_id:

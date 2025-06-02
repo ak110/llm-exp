@@ -37,28 +37,39 @@ def process_non_streaming_response(
                         openai_content.append(part.text)
                     elif part.function_call is not None:
                         # ツール呼び出しの処理
-                        tool_call = {
-                            "id": secrets.token_urlsafe(8),
-                            "type": "function",
-                            "function": {
-                                "name": part.function_call.name,
-                                "arguments": json.dumps(dict(part.function_call.args)),
-                            },
-                        }
+                        tool_call = openai.types.chat.ChatCompletionMessageToolCall(
+                            id=secrets.token_urlsafe(8),
+                            type="function",
+                            function=openai.types.chat.chat_completion_message_tool_call.Function(
+                                name=(
+                                    ""
+                                    if part.function_call.name is None
+                                    else part.function_call.name
+                                ),
+                                arguments=(
+                                    ""
+                                    if part.function_call.args is None
+                                    else json.dumps(dict(part.function_call.args))
+                                ),
+                            ),
+                        )
                         tool_calls.append(tool_call)
 
-            message = {
-                "role": "assistant",
-                "content": "\n".join(openai_content) if openai_content else None,
-            }
-
+            message = openai.types.chat.ChatCompletionMessage(
+                role="assistant",
+                content="\n".join(openai_content) if openai_content else None,
+            )
             if tool_calls:
-                message["tool_calls"] = tool_calls
+                message.tool_calls = tool_calls
 
             finish_reason = _convert_finish_reason(candidate.finish_reason)
 
             choices.append(
-                {"index": i, "message": message, "finish_reason": finish_reason}
+                openai.types.chat.chat_completion.Choice(
+                    index=i,
+                    message=message,
+                    finish_reason="stop" if finish_reason is None else finish_reason,
+                )
             )
 
     return openai.types.chat.ChatCompletion.model_construct(
@@ -98,9 +109,13 @@ def process_stream_chunk(
                                 index=len(tool_calls),
                                 id=secrets.token_urlsafe(8),
                                 type="function",
-                                function=openai.types.chat.chat_completion_chunk.ChoiceDeltaFunctionCall(
+                                function=openai.types.chat.chat_completion_chunk.ChoiceDeltaToolCallFunction(
                                     name=part.function_call.name,
-                                    arguments=json.dumps(dict(part.function_call.args)),
+                                    arguments=(
+                                        None
+                                        if part.function_call.args is None
+                                        else json.dumps(dict(part.function_call.args))
+                                    ),
                                 ),
                             )
                         )
@@ -111,15 +126,11 @@ def process_stream_chunk(
                 if tool_calls:
                     delta.tool_calls = tool_calls
 
-            finish_reason = (
-                _convert_finish_reason(candidate.finish_reason)
-                if candidate.finish_reason
-                else None
-            )
+            finish_reason = _convert_finish_reason(candidate.finish_reason)
 
             choices.append(
                 openai.types.chat.chat_completion_chunk.Choice(
-                    index=candidate.index, delta=delta, finish_reason=finish_reason
+                    index=candidate.index or 0, delta=delta, finish_reason=finish_reason
                 )
             )
 
@@ -138,25 +149,30 @@ def process_stream_chunk(
 
 
 def _convert_finish_reason(
-    finish_reason: typing.Any,
+    finish_reason: google.genai.types.FinishReason | None,
 ) -> typing.Literal["stop", "length", "tool_calls", "content_filter"] | None:
     """finish_reasonをOpenAI形式に変換する。"""
     if finish_reason is None:
         return None
 
-    # Geminiのfinish_reasonをOpenAIの形式にマッピング
-    reason_str = str(finish_reason).lower()
-
-    if "stop" in reason_str or "finish" in reason_str:
-        return "stop"
-    elif "length" in reason_str or "max_tokens" in reason_str:
-        return "length"
-    elif "safety" in reason_str or "filter" in reason_str:
-        return "content_filter"
-    elif "tool" in reason_str or "function" in reason_str:
-        return "tool_calls"
-    else:
-        return "stop"  # デフォルト
+    _FINISH_REASON_TABLE: dict[
+        google.genai.types.FinishReason,
+        typing.Literal["stop", "length", "tool_calls", "content_filter"],
+    ] = {
+        google.genai.types.FinishReason.STOP: "stop",
+        google.genai.types.FinishReason.MAX_TOKENS: "length",
+        google.genai.types.FinishReason.SAFETY: "content_filter",
+        google.genai.types.FinishReason.RECITATION: "content_filter",
+        google.genai.types.FinishReason.LANGUAGE: "content_filter",
+        google.genai.types.FinishReason.OTHER: "stop",
+        google.genai.types.FinishReason.BLOCKLIST: "content_filter",
+        google.genai.types.FinishReason.PROHIBITED_CONTENT: "content_filter",
+        google.genai.types.FinishReason.SPII: "content_filter",
+        google.genai.types.FinishReason.MALFORMED_FUNCTION_CALL: "tool_calls",
+        google.genai.types.FinishReason.IMAGE_SAFETY: "content_filter",
+        google.genai.types.FinishReason.UNEXPECTED_TOOL_CALL: "tool_calls",
+    }
+    return _FINISH_REASON_TABLE.get(finish_reason, "stop")
 
 
 def _convert_usage(
@@ -185,7 +201,7 @@ def _convert_usage(
         total_tokens=usage_metadata.total_token_count or 0,
         prompt_tokens_details=openai.types.completion_usage.PromptTokensDetails(
             audio_tokens=sum(
-                detail.token_count
+                (detail.token_count or 0)
                 for detail in (usage_metadata.prompt_tokens_details or [])
                 if detail.modality == google.genai.types.MediaModality.AUDIO
             ),
@@ -194,7 +210,7 @@ def _convert_usage(
         completion_tokens_details=openai.types.completion_usage.CompletionTokensDetails(
             reasoning_tokens=usage_metadata.thoughts_token_count or 0,
             audio_tokens=sum(
-                detail.token_count
+                (detail.token_count or 0)
                 for detail in (usage_metadata.candidates_tokens_details or [])
                 if detail.modality == google.genai.types.MediaModality.AUDIO
             ),
