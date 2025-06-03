@@ -7,12 +7,11 @@ import logging
 
 import google.genai
 import openai.types.chat
-import openai.types.completion_usage
 
 import config
 import types_chat
-import vertexai_request
-import vertexai_response
+import vertexai_chat_request
+import vertexai_chat_response
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +35,14 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        generation_config, formatted_messages = vertexai_request.convert_request(
+        generation_config, formatted_messages = vertexai_chat_request.convert_request(
             request
         )
         response = await client.aio.models.generate_content(
             model=request.model, contents=formatted_messages, config=generation_config
         )
 
-        return vertexai_response.process_non_streaming_response(request, response)
+        return vertexai_chat_response.process_non_streaming_response(request, response)
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -58,7 +57,7 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        generation_config, formatted_messages = vertexai_request.convert_request(
+        generation_config, formatted_messages = vertexai_chat_request.convert_request(
             request
         )
         stream = await client.aio.models.generate_content_stream(
@@ -66,7 +65,7 @@ class VertexAIClient:
         )
 
         async for response_chunk in stream:
-            chunk = vertexai_response.process_stream_chunk(request, response_chunk)
+            chunk = vertexai_chat_response.process_stream_chunk(request, response_chunk)
             if chunk is not None:
                 yield chunk
 

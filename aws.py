@@ -10,8 +10,8 @@ import aiobotocore.session
 import iam_rolesanywhere_session
 import openai.types.chat
 
-import aws_request
-import aws_response
+import aws_chat_request
+import aws_chat_response
 import config
 import types_chat
 
@@ -46,7 +46,7 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。"""
         assert self.session is not None
         assert not request.stream
-        kwargs = aws_request.convert_request(request)
+        kwargs = aws_chat_request.convert_request(request)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -60,7 +60,7 @@ class AWSClient:
             aws_account_id=credentials.account_id,
         ) as bedrock:
             response = await bedrock.converse(**kwargs)
-            return aws_response.process_non_streaming_response(request, response)
+            return aws_chat_response.process_non_streaming_response(request, response)
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -68,7 +68,7 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。(ストリーミング版)"""
         assert self.session is not None
         assert request.stream
-        kwargs = aws_request.convert_request(request)
+        kwargs = aws_chat_request.convert_request(request)
 
         # Converse APIを呼び出し
         credentials = self.session.get_credentials()
@@ -83,7 +83,7 @@ class AWSClient:
         ) as bedrock:
             response = await bedrock.converse_stream(**kwargs)
             async for event in response["stream"]:
-                chunk = aws_response.process_stream_event(request, event)
+                chunk = aws_chat_response.process_stream_event(request, event)
                 if chunk is not None:
                     yield chunk
 
