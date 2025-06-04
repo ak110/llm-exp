@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
-"""AWSのChat Completions API互換の実装。"""
+"""AWSのChat/Image Completions API互換の実装。"""
 
 import asyncio
 import collections.abc
+import json
 import logging
 import os
+import typing
 
 import aiobotocore.session
 import iam_rolesanywhere_session
 import openai.types.chat
+import types_aiobotocore_bedrock_runtime.client
 
 import aws_chat_request
 import aws_chat_response
+import aws_embedding
+import aws_image
 import config
 import types_chat
+import types_embedding
+import types_image
 
 logger = logging.getLogger(__name__)
 
@@ -46,19 +53,10 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。"""
         assert self.session is not None
         assert not request.stream
+        # リクエストの変換
         kwargs = aws_chat_request.convert_request(request)
-
-        # Converse APIを呼び出し
-        credentials = self.session.get_credentials()
-        session = aiobotocore.session.get_session()
-        async with session.create_client(
-            service_name="bedrock-runtime",
-            region_name="ap-northeast-1",
-            aws_access_key_id=credentials.access_key,
-            aws_secret_access_key=credentials.secret_key,
-            aws_session_token=credentials.token,
-            aws_account_id=credentials.account_id,
-        ) as bedrock:
+        # API呼び出し
+        async with self._create_client() as bedrock:
             response = await bedrock.converse(**kwargs)
             return aws_chat_response.process_non_streaming_response(request, response)
 
@@ -68,24 +66,77 @@ class AWSClient:
         """OpenAIのChat Completions API互換API。(ストリーミング版)"""
         assert self.session is not None
         assert request.stream
+        # リクエストの変換
         kwargs = aws_chat_request.convert_request(request)
+        # API呼び出し
+        async with self._create_client() as bedrock:
+            response = await bedrock.converse_stream(**kwargs)
+            async for event in response["stream"]:
+                chunk = aws_chat_response.process_stream_event(request, event)
+                if chunk is not None:
+                    yield chunk
 
-        # Converse APIを呼び出し
+    async def images_generate(
+        self, request: types_image.ImageRequest
+    ) -> openai.types.ImagesResponse:
+        """OpenAIのImage Creation API互換API。"""
+        assert self.session is not None
+        # リクエストの変換
+        request_body = aws_image.convert_request(request)
+        # API呼び出し
+        async with self._create_client() as bedrock:
+            response_body = await self._invoke_model(
+                bedrock, request.model, request_body
+            )
+            return aws_image.convert_response(request, response_body)
+
+    async def embeddings(
+        self, request: types_embedding.EmbeddingRequest
+    ) -> openai.types.CreateEmbeddingResponse:
+        """OpenAIのImage Creation API互換API。"""
+        assert self.session is not None
+        # リクエストの変換
+        request_body = aws_embedding.convert_request(request)
+        # API呼び出し
+        async with self._create_client() as bedrock:
+            response_body = await self._invoke_model(
+                bedrock, request.model, request_body
+            )
+            return aws_embedding.convert_response(request, response_body)
+
+    async def _invoke_model(
+        self,
+        bedrock: types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient,
+        model_id: str,
+        body: dict[str, typing.Any],
+    ) -> dict[str, typing.Any]:
+        """bedrockのinvoke_modelを呼び出す。"""
+        response = await bedrock.invoke_model(
+            body=json.dumps(body),
+            modelId=model_id,
+            accept="application/json",
+            contentType="application/json",
+        )
+        response_body = json.loads(await response.get("body").read())
+        return response_body
+
+    def _create_client(
+        self,
+    ) -> aiobotocore.session.ClientCreatorContext[
+        types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient
+    ]:
+        """aiobotocoreのクライアントを作成する。"""
+        assert self.session is not None
         credentials = self.session.get_credentials()
         session = aiobotocore.session.get_session()
-        async with session.create_client(
+        return session.create_client(
             service_name="bedrock-runtime",
             region_name="ap-northeast-1",
             aws_access_key_id=credentials.access_key,
             aws_secret_access_key=credentials.secret_key,
             aws_session_token=credentials.token,
             aws_account_id=credentials.account_id,
-        ) as bedrock:
-            response = await bedrock.converse_stream(**kwargs)
-            async for event in response["stream"]:
-                chunk = aws_chat_response.process_stream_event(request, event)
-                if chunk is not None:
-                    yield chunk
+        )
 
 
 async def main() -> None:
@@ -94,6 +145,13 @@ async def main() -> None:
 
     client = AWSClient()
     model = "anthropic.claude-3-haiku-20240307-v1:0"
+
+    # 画像生成のテスト
+    if True:
+        response = await client.images_generate(
+            prompt="A cute cat sitting on a table", n=1, size="1024x1024"
+        )
+        print("Image generation response:", response)
 
     # 非ストリーミングモードでのテスト
     if False:

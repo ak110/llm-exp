@@ -13,10 +13,14 @@ import cryptography.x509
 import msal
 import openai
 import openai.types.chat
+import openai.types.embedding
+import openai.types.image
 from openai._types import NOT_GIVEN
 
 import config
 import types_chat
+import types_embedding
+import types_image
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +122,47 @@ class AzureClient:
             )
             async for chunk in stream:
                 yield chunk
+
+    async def images(
+        self, request: types_image.ImageRequest
+    ) -> openai.types.ImagesResponse:
+        """OpenAIのImage Generation API互換API。"""
+        async with openai.AsyncAzureOpenAI(
+            azure_endpoint="https://privchat-eu.openai.azure.com",
+            api_version="2025-01-01-preview",
+            azure_ad_token=acquire_access_token(
+                ["https://cognitiveservices.azure.com/.default"]
+            ),
+        ) as client:
+            return await client.images.generate(
+                model=request.model,
+                prompt=request.prompt,
+                quality=request.quality,
+                n=request.n,
+                response_format=request.response_format,
+                size=request.size,
+                style=request.style,
+                user=request.user,
+            )
+
+    async def embeddings(
+        self, request: types_embedding.EmbeddingRequest
+    ) -> openai.types.CreateEmbeddingResponse:
+        """OpenAIのEmbedding API互換API。"""
+        async with openai.AsyncAzureOpenAI(
+            azure_endpoint="https://privchat-eu.openai.azure.com",
+            api_version="2025-01-01-preview",
+            azure_ad_token=acquire_access_token(
+                ["https://cognitiveservices.azure.com/.default"]
+            ),
+        ) as client:
+            return await client.embeddings.create(
+                model=request.model,
+                input=request.input,
+                encoding_format=request.encoding_format,
+                user=request.user,
+                dimensions=request.dimensions,
+            )
 
 
 def acquire_access_token(scopes: list[str]) -> str:
@@ -295,6 +340,31 @@ async def main() -> None:
                     )
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
+
+    # 画像生成APIのテスト
+    if True:
+        response = await client.images(
+            types_image.ImageRequest(
+                model="dall-e-3",
+                prompt="赤いバラの花束",
+                n=1,
+                quality="standard",
+                size="1024x1024",
+                style="natural",
+            )
+        )
+        print("Image URL:", response.data[0].url)
+
+    # Embedding APIのテスト
+    if True:
+        response = await client.embeddings(
+            types_embedding.EmbeddingRequest(
+                model="text-embedding-ada-002",
+                input="これは埋め込みのテストです。",
+                encoding_format="float",
+            )
+        )
+        print("Embedding:", response.data[0].embedding[:5])  # 最初の5要素のみ表示
 
 
 if __name__ == "__main__":

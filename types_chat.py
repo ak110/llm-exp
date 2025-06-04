@@ -172,6 +172,12 @@ class ChatRequest(pydantic.BaseModel):
     ) = NOT_GIVEN
     """レスポンスで使用する関連結果をウェブから検索するツール。"""
 
+    # 以下は提供しない
+    # extra_headers: Send extra headers
+    # extra_query: Add additional query parameters to the request
+    # extra_body: Add additional JSON properties to the request
+    # timeout: Override the client-level default timeout for this request, in seconds
+
     @pydantic.model_validator(mode="after")
     def validate_after(self) -> typing.Self:
         # max_tokens / max_completion_tokens
