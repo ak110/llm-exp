@@ -353,18 +353,21 @@ async def main() -> None:
                 style="natural",
             )
         )
+        assert response.data is not None
         print("Image URL:", response.data[0].url)
 
     # Embedding APIのテスト
     if True:
-        response = await client.embeddings(
+        embedding_response = await client.embeddings(
             types_embedding.EmbeddingRequest(
                 model="text-embedding-ada-002",
                 input="これは埋め込みのテストです。",
                 encoding_format="float",
             )
         )
-        print("Embedding:", response.data[0].embedding[:5])  # 最初の5要素のみ表示
+        print(
+            "Embedding:", embedding_response.data[0].embedding[:5]
+        )  # 最初の5要素のみ表示
 
 
 if __name__ == "__main__":

@@ -57,6 +57,9 @@ class AWSClient:
         kwargs = aws_chat_request.convert_request(request)
         # API呼び出し
         async with self._create_client() as bedrock:
+            bedrock = typing.cast(
+                types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
+            )
             response = await bedrock.converse(**kwargs)
             return aws_chat_response.process_non_streaming_response(request, response)
 
@@ -70,6 +73,9 @@ class AWSClient:
         kwargs = aws_chat_request.convert_request(request)
         # API呼び出し
         async with self._create_client() as bedrock:
+            bedrock = typing.cast(
+                types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
+            )
             response = await bedrock.converse_stream(**kwargs)
             async for event in response["stream"]:
                 chunk = aws_chat_response.process_stream_event(request, event)
@@ -85,6 +91,9 @@ class AWSClient:
         request_body = aws_image.convert_request(request)
         # API呼び出し
         async with self._create_client() as bedrock:
+            bedrock = typing.cast(
+                types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
+            )
             response_body = await self._invoke_model(
                 bedrock, request.model, request_body
             )
@@ -99,6 +108,9 @@ class AWSClient:
         request_body = aws_embedding.convert_request(request)
         # API呼び出し
         async with self._create_client() as bedrock:
+            bedrock = typing.cast(
+                types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
+            )
             response_body = await self._invoke_model(
                 bedrock, request.model, request_body
             )
@@ -117,14 +129,10 @@ class AWSClient:
             accept="application/json",
             contentType="application/json",
         )
-        response_body = json.loads(await response.get("body").read())
+        response_body = json.loads(await response["body"].read())
         return response_body
 
-    def _create_client(
-        self,
-    ) -> aiobotocore.session.ClientCreatorContext[
-        types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient
-    ]:
+    def _create_client(self) -> aiobotocore.session.ClientCreatorContext:
         """aiobotocoreのクライアントを作成する。"""
         assert self.session is not None
         credentials = self.session.get_credentials()
@@ -149,7 +157,12 @@ async def main() -> None:
     # 画像生成のテスト
     if True:
         response = await client.images_generate(
-            prompt="A cute cat sitting on a table", n=1, size="1024x1024"
+            types_image.ImageRequest(
+                model="stability.stable-diffusion-xl-1024-v1-0",
+                prompt="A cute cat sitting on a table",
+                n=1,
+                size="1024x1024",
+            )
         )
         print("Image generation response:", response)
 

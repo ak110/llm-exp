@@ -62,9 +62,9 @@ class EmbeddingRequest(pydantic.BaseModel):
         elif isinstance(self.input, list) and all(
             isinstance(i, int) for i in self.input
         ):
-            return [self.input]
+            return [typing.cast(list[int], self.input)]
         else:
-            return self.input
+            return typing.cast(list[str] | list[list[int]], self.input)
 
 
 def make_embedding_response(
