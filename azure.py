@@ -135,10 +135,14 @@ class AzureClient:
             ),
         ) as client:
             return await client.images.generate(
-                model=request.model,
                 prompt=request.prompt,
+                background=request.background,
+                model=request.model,
+                moderation=request.moderation,
                 quality=request.quality,
                 n=request.n,
+                output_compression=request.output_compression,
+                quality=request.quality,
                 response_format=request.response_format,
                 size=request.size,
                 style=request.style,
@@ -157,11 +161,11 @@ class AzureClient:
             ),
         ) as client:
             return await client.embeddings.create(
-                model=request.model,
                 input=request.input,
+                model=request.model,
+                dimensions=request.dimensions,
                 encoding_format=request.encoding_format,
                 user=request.user,
-                dimensions=request.dimensions,
             )
 
 
