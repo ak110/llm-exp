@@ -11,6 +11,7 @@ def _main():
     model = "amazon.nova-pro-v1:0"
 
     messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Hey, how are you?"},
         {"role": "assistant", "content": "Hey, how are you doing today?"},
         {"role": "user", "content": "Waaaah, I'm so happy to see you!"},
