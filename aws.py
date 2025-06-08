@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""AWSのChat/Image Completions API互換の実装。"""
+"""AWSのOpenAI API互換の実装。"""
 
 import asyncio
 import collections.abc

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""VertexAIのChat Completions API互換の実装。"""
+"""VertexAIのOpenAI API互換の実装。"""
 
 import asyncio
 import collections.abc
@@ -10,6 +10,8 @@ import openai.types.chat
 
 import config
 import types_chat
+import types_embedding
+import types_image
 import vertexai_chat_request
 import vertexai_chat_response
 
@@ -68,6 +70,18 @@ class VertexAIClient:
             chunk = vertexai_chat_response.process_stream_chunk(request, response_chunk)
             if chunk is not None:
                 yield chunk
+
+    async def images_generate(
+        self, request: types_image.ImageRequest
+    ) -> openai.types.ImagesResponse:
+        """OpenAIのImage Creation API互換API。"""
+        # TODO: 実装
+
+    async def embeddings(
+        self, request: types_embedding.EmbeddingRequest
+    ) -> openai.types.CreateEmbeddingResponse:
+        """OpenAIのEmbeddings API互換API。"""
+        # TODO: 実装
 
 
 async def main() -> None:
