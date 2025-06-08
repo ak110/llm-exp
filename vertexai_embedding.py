@@ -13,6 +13,7 @@ import google.genai.types
 import openai.types
 from openai._types import NotGiven
 
+import errors
 import types_embedding
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,9 @@ def convert_request(
     """OpenAIのリクエストをVertexAIのリクエストに変換。"""
     contents = request.get_input()
     if len(contents) > 0 and isinstance(contents[0], list):
-        raise ValueError("Vertex AI Embedding API does not support token arrays.")
+        raise errors.InvalidParameterValue(
+            "Vertex AI Embedding APIはトークン配列をサポートしていません", param="input"
+        )
 
     config = google.genai.types.EmbedContentConfig()
     if not isinstance(request.dimensions, NotGiven):

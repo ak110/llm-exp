@@ -14,6 +14,7 @@ import types_aiobotocore_bedrock_runtime.literals as bedrock_literals
 import types_aiobotocore_bedrock_runtime.type_defs as bedrock_types
 from openai._types import NotGiven
 
+import errors
 import types_chat
 
 logger = logging.getLogger(__name__)
@@ -162,10 +163,12 @@ def _make_tool_config(
     bedrock_tools: list[bedrock_types.ToolTypeDef] = []
     for tool in tools:
         if not isinstance(tool, dict):
-            raise ValueError(f"Each tool must be a dict. {tool=}")
+            raise errors.InvalidParameterValue(
+                f"各ツールは辞書である必要があります: {tool}", param="tools"
+            )
         function = tool.get("function")
         if function is None:
-            raise ValueError(f"Tool must have 'function'. {tool=}")
+            raise errors.MissingRequiredParameter("function")
 
         bedrock_tools.append(
             {
@@ -182,7 +185,9 @@ def _make_tool_config(
         bedrock_tool_choice = {"auto": {}}
     elif isinstance(tool_choice, dict):
         if tool_choice.get("type") != "function":
-            raise ValueError(f"Invalid tool_choice: {tool_choice=}")
+            raise errors.InvalidParameterValue(
+                f"無効なツール選択です: {tool_choice}", param="tool_choice"
+            )
         bedrock_tool_choice = {
             "tool": {"name": tool_choice.get("function", {}).get("name", "")}
         }
@@ -193,7 +198,9 @@ def _make_tool_config(
     elif tool_choice == "required":
         bedrock_tool_choice = {"any": {}}
     else:
-        raise ValueError(f"Invalid tool_choice: {tool_choice}.")
+        raise errors.InvalidParameterValue(
+            f"無効なツール選択です: {tool_choice}", param="tool_choice"
+        )
 
     return {"tools": bedrock_tools, "toolChoice": bedrock_tool_choice}
 
@@ -226,12 +233,13 @@ def _to_bedrock_userassistant_message(
         )
         for tool_call in tool_calls:
             if tool_call.get("type") != "function":
-                raise ValueError(
-                    f"Unsupported tool call type: {tool_call=}. " "Expected 'function'."
+                raise errors.InvalidParameterValue(
+                    f"サポートされていないツール呼び出しタイプです: {tool_call}。'function'を期待しています",
+                    param="tool_call.type",
                 )
             function = tool_call.get("function")
             if function is None:
-                raise ValueError(f"Tool call must have 'function'. {tool_call=}")
+                raise errors.MissingRequiredParameter("function")
 
             # argumentsはJSONパースする必要がある
             arguments = function.get("arguments", "")
@@ -267,7 +275,7 @@ def _to_bedrock_tool_result(
     """ツール結果メッセージをBedrock形式に変換。"""
     tool_call_id = message.get("tool_call_id")
     if tool_call_id is None:
-        raise ValueError(f"Tool message must have 'tool_call_id'. {message=}")
+        raise errors.MissingRequiredParameter("tool_call_id")
 
     bedrock_content: list[bedrock_types.ToolResultContentBlockTypeDef] = []
     content: (
@@ -289,9 +297,13 @@ def _to_bedrock_tool_result(
                     c_text = c.get("text", "")
                     bedrock_content.append({"text": c_text})
                 else:
-                    raise ValueError(f"Invalid content: {c}.")
+                    raise errors.InvalidParameterValue(
+                        f"無効なコンテンツです: {c}", param="content"
+                    )
         else:
-            raise ValueError(f"Invalid content: {content}.")
+            raise errors.InvalidParameterValue(
+                f"無効なコンテンツです: {content}", param="content"
+            )
 
     # 文字列がJSONっぽければJSON扱いにしちゃう
     for i, bc in enumerate(bedrock_content):
@@ -330,9 +342,9 @@ def _to_bedrock_content_blocks(
         return [{"text": value}]
     if isinstance(value, typing.Iterable):
         return [_to_bedrock_content_block(v) for v in value]  # type: ignore[arg-type]
-    raise ValueError(
-        f"Invalid content: {value=}. "
-        "Expected str or iterable of OpenAI content parts."
+    raise errors.InvalidParameterValue(
+        f"無効なコンテンツです: {value}。文字列またはOpenAIコンテンツ部分のイテラブルを期待しています",
+        param="content",
     )
 
 
@@ -358,24 +370,20 @@ def _to_bedrock_content_block(
         case "text":
             text = value.get("text")
             if text is None:
-                raise ValueError(f"Text content must have 'text' field. {value=}")
+                raise errors.MissingRequiredParameter("text")
             text = str(text)
             return {"text": text}
         case "image_url":
             image_url = value.get("image_url")
             if image_url is None:
-                raise ValueError(
-                    f"Image URL content must have 'image_url' field. {value=}"
-                )
+                raise errors.MissingRequiredParameter("image_url")
             image_url = typing.cast(
                 openai.types.chat.chat_completion_content_part_image_param.ImageURL,
                 image_url,
             )
             url = image_url.get("url")
             if url is None:
-                raise ValueError(
-                    f"Image URL content must have 'url' field. {image_url=}"
-                )
+                raise errors.MissingRequiredParameter("url")
             # detail = image_url.get("detail")
             data_url = pytilpack.data_url.parse(url)
             if data_url.mime_type.startswith("image/"):
@@ -387,9 +395,9 @@ def _to_bedrock_content_block(
                     "image/png": "png",
                 }.get(data_url.mime_type)
                 if image_format is None:
-                    raise ValueError(
-                        f"Unsupported MIME type: {data_url.mime_type}. "
-                        "Expected image."
+                    raise errors.InvalidParameterValue(
+                        f"サポートされていないMIMEタイプです: {data_url.mime_type}。画像を期待しています",
+                        param="mime_type",
                     )
                 image_format = typing.cast(
                     bedrock_literals.ImageFormatType, image_format
@@ -415,9 +423,9 @@ def _to_bedrock_content_block(
                     "video/ogg": "ogg",
                 }.get(data_url.mime_type)
                 if video_format is None:
-                    raise ValueError(
-                        f"Unsupported MIME type: {data_url.mime_type}. "
-                        "Expected video."
+                    raise errors.InvalidParameterValue(
+                        f"サポートされていないMIMEタイプです: {data_url.mime_type}。動画を期待しています",
+                        param="mime_type",
                     )
                 video_format = typing.cast(
                     bedrock_literals.VideoFormatType, video_format
@@ -445,9 +453,9 @@ def _to_bedrock_content_block(
                     bedrock_literals.DocumentFormatType, doc_format
                 )
                 if doc_format is None:
-                    raise ValueError(
-                        f"Unsupported MIME type: {data_url.mime_type}. "
-                        "Expected image/video/document."
+                    raise errors.InvalidParameterValue(
+                        f"サポートされていないMIMEタイプです: {data_url.mime_type}。画像/動画/文書を期待しています",
+                        param="mime_type",
                     )
                 return {
                     "document": {
@@ -459,7 +467,9 @@ def _to_bedrock_content_block(
         case "input_audio":
             # format_ = value["input_audio"].get("format")  # "wav" or "mp3"
             # data = value["input_audio"].get("data", "")  # Base64 encoded data.
-            raise ValueError("Input audio is not supported in this implementation.")
+            raise errors.InvalidParameterValue(
+                "入力音声はこの実装ではサポートされていません", param="input_audio"
+            )
         case "file":
             # .venv/lib/python3.12/site-packages/openai/types/chat/chat_completion_content_part_param.py
             file = typing.cast(
@@ -471,9 +481,7 @@ def _to_bedrock_content_block(
             filename = file.get("filename")  # Original filename.
             if file_data is None:
                 # 手抜き: とりあえずファイルデータ必須にする
-                raise ValueError(
-                    "File data is required for file content in this implementation."
-                )
+                raise errors.MissingRequiredParameter("file_data")
             suffix = pathlib.Path(filename).suffix if filename else ""
             # ["gif", "jpeg", "jpg", "png", "webp"]
             # ["flv", "mkv", "mov", "mp4", "mpeg", "mpg", "three_gp", "webm", "wmv"]
@@ -534,16 +542,16 @@ def _to_bedrock_content_block(
                     }
                 }
             else:
-                raise ValueError(
-                    f"Unsupported file type: {filename}. "
-                    "Expected image/video/document."
+                raise errors.InvalidParameterValue(
+                    f"サポートされていないファイルタイプです: {filename}。画像/動画/文書を期待しています",
+                    param="filename",
                 )
         case "refusal":
             refusal = value.get("refusal")
             refusal = typing.cast(str, refusal)
             return {"guardContent": {"text": {"text": refusal}}}
         case _:
-            raise ValueError(
-                f"Unsupported content type: {value.get('type')}. "
-                "Expected 'text', 'image_url', 'file_url', or 'refusal'."
+            raise errors.InvalidParameterValue(
+                f"サポートされていないコンテンツタイプです: {value.get('type')}。'text'、'image_url'、'file_url'、または'refusal'を期待しています",
+                param="type",
             )

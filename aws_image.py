@@ -16,6 +16,7 @@ import typing
 import openai.types
 from openai._types import NotGiven
 
+import errors
 import types_image
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,9 @@ def convert_request(request: types_image.ImageRequest) -> dict[str, typing.Any]:
         return body
 
     else:
-        raise ValueError(f"Unsupported model: {request.model}")
+        raise errors.InvalidParameterValue(
+            f"サポートされていないモデルです: {request.model}", param="model"
+        )
 
 
 def convert_response(
@@ -93,6 +96,8 @@ def convert_response(
             data.append(openai.types.Image(b64_json=image_data))
 
     else:
-        raise ValueError(f"Unsupported model: {request.model}")
+        raise errors.InvalidParameterValue(
+            f"サポートされていないモデルです: {request.model}", param="model"
+        )
 
     return openai.types.ImagesResponse(created=int(time.time()), data=data)

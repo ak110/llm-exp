@@ -9,6 +9,7 @@ import openai.types.chat
 import openai.types.chat.chat_completion_content_part_param
 from openai._types import NotGiven
 
+import errors
 import types_chat
 
 logger = logging.getLogger(__name__)
@@ -125,7 +126,10 @@ def _make_generation_config(
     if not isinstance(request.tool_choice, NotGiven):
         if isinstance(request.tool_choice, dict):
             if request.tool_choice.get("type") != "function":
-                raise ValueError(f"Unsupported tool choice: {request.tool_choice}")
+                raise errors.InvalidParameterValue(
+                    f"サポートされていないツール選択です: {request.tool_choice}",
+                    param="tool_choice",
+                )
             generation_config.tool_config = google.genai.types.ToolConfig(
                 function_calling_config=google.genai.types.FunctionCallingConfig(
                     allowed_function_names=[
@@ -152,7 +156,10 @@ def _make_generation_config(
                 )
             )
         else:
-            raise ValueError(f"Unsupported tool choice: {request.tool_choice}")
+            raise errors.InvalidParameterValue(
+                f"サポートされていないツール選択です: {request.tool_choice}",
+                param="tool_choice",
+            )
 
     if not isinstance(request.top_logprobs, NotGiven):
         generation_config.logprobs = request.top_logprobs
@@ -252,21 +259,25 @@ def _format_messages(
                                     )
                                 )
                             else:
-                                raise ValueError(
-                                    f"Unsupported image URL: {image_url}. "
-                                    "Expected inline data."
+                                raise errors.InvalidParameterValue(
+                                    f"サポートされていない画像URLです: {image_url}。インラインデータを期待しています",
+                                    param="image_url",
                                 )
                         elif part.get("type") == "file":
                             # ファイル添付の処理
-                            raise ValueError(
-                                "File attachments are not fully supported yet"
+                            raise errors.InvalidParameterValue(
+                                "ファイル添付はまだ完全にサポートされていません",
+                                param="file",
                             )
                         else:
-                            raise ValueError(f"Unsupported content part: {part}")
+                            raise errors.InvalidParameterValue(
+                                f"サポートされていないコンテンツ部分です: {part}",
+                                param="content_part",
+                            )
                 else:
-                    raise ValueError(
-                        f"Unsupported content: {content}. "
-                        "Expected str or list of content parts."
+                    raise errors.InvalidParameterValue(
+                        f"サポートされていないコンテンツです: {content}。文字列またはコンテンツ部分のリストを期待しています",
+                        param="content",
                     )
 
             # ツール呼び出しの処理（アシスタントメッセージの場合）
@@ -291,7 +302,10 @@ def _format_messages(
                                 )
                             )
                         else:
-                            raise ValueError(f"Unsupported tool call: {tool_call=}")
+                            raise errors.InvalidParameterValue(
+                                f"サポートされていないツール呼び出しです: {tool_call}",
+                                param="tool_call",
+                            )
 
             if len(parts) > 0:
                 formatted_messages.append(
@@ -333,7 +347,9 @@ def _format_messages(
                     google.genai.types.Content(role="user", parts=parts)
                 )
         else:
-            raise ValueError(f"Unsupported message: {message=}")
+            raise errors.InvalidParameterValue(
+                f"サポートされていないメッセージです: {message}", param="message"
+            )
 
     system_instruction = (
         "\n".join(system_instruction_parts)
@@ -358,6 +374,7 @@ def _find_tool_name_by_id(
             for tool_call in tool_calls:
                 if tool_call.get("id") == tool_call_id:
                     return tool_call.get("function", {}).get("name", "")
-    raise ValueError(
-        f"Tool call ID '{tool_call_id}' not found in messages. {messages=}"
+    raise errors.InvalidParameterValue(
+        f"ツール呼び出しID '{tool_call_id}' がメッセージ内に見つかりません",
+        param="tool_call_id",
     )

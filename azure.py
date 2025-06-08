@@ -186,10 +186,12 @@ def acquire_access_token(scopes: list[str]) -> str:
     app = create_msal_app()
     token = app.acquire_token_for_client(scopes)
     if "error" in token:
-        raise ValueError(
-            f"認証処理でエラーが発生しました。"
-            f"エラーコード:{token.get('error')}"
-            f" 詳細:{token.get('error_description')}"
+        raise errors.APIError(
+            f"認証処理でエラーが発生しました。エラーコード:{token.get('error')}",
+            code="authentication_error",
+            status_code=401,
+            type_="server_error",
+            details=token.get("error_description"),
         )
     assert "access_token" in token, f"トークンが取得できませんでした: {token}"
     return token["access_token"]

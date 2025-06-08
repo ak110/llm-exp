@@ -9,6 +9,8 @@ import openai.types.shared.reasoning_effort
 import pydantic
 from openai._types import NOT_GIVEN, NotGiven
 
+import errors
+
 
 class ChatRequest(pydantic.BaseModel):
     """チャット補完APIのリクエスト。"""
@@ -184,8 +186,9 @@ class ChatRequest(pydantic.BaseModel):
         has_max_tokens = not isinstance(self.max_tokens, NotGiven)
         has_max_completion_tokens = not isinstance(self.max_completion_tokens, NotGiven)
         if has_max_tokens and has_max_completion_tokens:
-            raise ValueError(
-                "max_tokens と max_completion_tokens は同時に指定できません"
+            raise errors.InvalidRequestError(
+                "max_tokens と max_completion_tokens は同時に指定できません",
+                param="max_completion_tokens",
             )
         if has_max_tokens:
             warnings.warn(

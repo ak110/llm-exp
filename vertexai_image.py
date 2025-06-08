@@ -13,6 +13,7 @@ import google.genai.types
 import openai.types
 from openai._types import NotGiven
 
+import errors
 import types_image
 
 logger = logging.getLogger(__name__)
@@ -52,16 +53,19 @@ def convert_response(
 ) -> openai.types.ImagesResponse:
     """VertexAIのレスポンスをOpenAIのレスポンスに変換。"""
     if response.generated_images is None:
-        raise ValueError(
-            "No images were generated in the response."
-            f" Check the request parameters. {response.positive_prompt_safety_attributes}"
+        raise errors.APIError(
+            "レスポンスで画像が生成されませんでした。リクエストパラメータを確認してください",
+            code="no_images_generated",
+            details=f"positive_prompt_safety_attributes: {response.positive_prompt_safety_attributes}",
         )
 
     data: list[openai.types.Image] = []
     for image in response.generated_images:
         # 画像が生成されなかった場合の処理
         if image.image is None and image.rai_filtered_reason is not None:
-            raise ValueError(f"Image generation failed: {image.rai_filtered_reason}")
+            raise errors.ContentPolicyViolationError(
+                details=f"RAIフィルターにより画像生成がブロックされました: {image.rai_filtered_reason}"
+            )
 
         # 画像が生成された場合の処理
         b64_json = None

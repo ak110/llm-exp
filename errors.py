@@ -69,12 +69,8 @@ class MissingRequiredParameter(InvalidRequestError):
 class InvalidParameterValue(InvalidRequestError):
     """無効なパラメータ値エラー。"""
 
-    def __init__(self, param: str, value: str) -> None:
-        super().__init__(
-            message=f"パラメータ '{param}' の値 '{value}' は無効です。",
-            code="invalid_parameter_value",
-            param=param,
-        )
+    def __init__(self, message: str, param: str) -> None:
+        super().__init__(message=message, code="invalid_parameter_value", param=param)
 
 
 class ContextWindowExceededError(InvalidRequestError):

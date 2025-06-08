@@ -14,6 +14,7 @@ import typing
 import openai.types
 from openai._types import NotGiven
 
+import errors
 import types_embedding
 
 logger = logging.getLogger(__name__)
@@ -27,18 +28,23 @@ def convert_request(request: types_embedding.EmbeddingRequest) -> dict[str, typi
     if request.model.startswith("amazon.titan-embed-text"):
         # Amazon Titan Text Embeddings V2
         if len(input_data) > 1:
-            raise ValueError("Titan Embed Text V2 supports only single input")
+            raise errors.InvalidParameterValue(
+                "Titan Embed Text V2は単一の入力のみサポートしています", param="input"
+            )
 
         text = input_data[0]
         if isinstance(text, list):
-            raise ValueError("Titan Embed Text V2 does not support token arrays")
+            raise errors.InvalidParameterValue(
+                "Titan Embed Text V2はトークン配列をサポートしていません", param="input"
+            )
 
         body = {"inputText": text}
 
         if not isinstance(request.dimensions, NotGiven):
             if request.dimensions not in [256, 512, 1024]:
-                raise ValueError(
-                    "Dimensions must be 256, 512, or 1024 for Titan Embed Text"
+                raise errors.InvalidParameterValue(
+                    "Titan Embed Textの場合、次元数は256、512、または1024である必要があります",
+                    param="dimensions",
                 )
             body["dimensions"] = request.dimensions
 
@@ -49,11 +55,16 @@ def convert_request(request: types_embedding.EmbeddingRequest) -> dict[str, typi
         texts = []
         for item in input_data:
             if isinstance(item, list):
-                raise ValueError("Cohere Embed does not support token arrays")
+                raise errors.InvalidParameterValue(
+                    "Cohere Embedはトークン配列をサポートしていません", param="input"
+                )
             texts.append(item)
 
         if len(texts) > 96:
-            raise ValueError("Cohere Embed supports maximum 96 texts per request")
+            raise errors.InvalidParameterValue(
+                "Cohere Embedはリクエストあたり最大96テキストまでサポートしています",
+                param="input",
+            )
 
         body = {
             "texts": texts,
@@ -64,7 +75,9 @@ def convert_request(request: types_embedding.EmbeddingRequest) -> dict[str, typi
         return body
 
     else:
-        raise ValueError(f"Unsupported model: {request.model}")
+        raise errors.InvalidParameterValue(
+            f"サポートされていないモデルです: {request.model}", param="model"
+        )
 
 
 def convert_response(
@@ -98,4 +111,6 @@ def convert_response(
         )
 
     else:
-        raise ValueError(f"Unsupported model: {request.model}")
+        raise errors.InvalidParameterValue(
+            f"サポートされていないモデルです: {request.model}", param="model"
+        )
