@@ -1,4 +1,12 @@
-"""AWSの画像生成APIの実装。"""
+"""AWSの画像生成APIの実装。
+
+Stable DiffusionやNova Canvasなどに対応する。
+
+参考:
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/bedrock-runtime_example_bedrock-runtime_InvokeModel_StableDiffusion_section.html
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/bedrock-runtime_example_bedrock-runtime_InvokeModel_AmazonNovaImageGeneration_section.html
+
+"""
 
 import logging
 import typing

@@ -14,6 +14,8 @@ import types_embedding
 import types_image
 import vertexai_chat_request
 import vertexai_chat_response
+import vertexai_embedding
+import vertexai_image
 
 logger = logging.getLogger(__name__)
 
@@ -75,13 +77,36 @@ class VertexAIClient:
         self, request: types_image.ImageRequest
     ) -> openai.types.ImagesResponse:
         """OpenAIのImage Creation API互換API。"""
-        # TODO: 実装
+        client = google.genai.Client(
+            vertexai=True,
+            project=config.GOOGLE_PROJECT_ID,
+            location="us-central1",
+            http_options=google.genai.types.HttpOptions(api_version="v1"),
+        )
+
+        generation_config = vertexai_image.convert_request(request)
+        response = await client.aio.models.generate_content(
+            model=request.model, contents=request.prompt, config=generation_config
+        )
+
+        return vertexai_image.convert_response(request, response)
 
     async def embeddings(
         self, request: types_embedding.EmbeddingRequest
     ) -> openai.types.CreateEmbeddingResponse:
         """OpenAIのEmbeddings API互換API。"""
-        # TODO: 実装
+        client = google.genai.Client(
+            vertexai=True,
+            project=config.GOOGLE_PROJECT_ID,
+            location="us-central1",
+            http_options=google.genai.types.HttpOptions(api_version="v1"),
+        )
+
+        response = await client.aio.models.embed_content(
+            model=request.model, contents=request.get_input()
+        )
+
+        return vertexai_embedding.convert_response(request, response)
 
 
 async def main() -> None:

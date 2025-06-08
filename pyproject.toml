@@ -51,7 +51,7 @@ skip-magic-trailing-comma = true
 [tool.flake8]
 # https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#flake8
 # https://flake8.pycqa.org/en/latest/user/configuration.html
-max-line-length = 128
+max-line-length = 256
 extend-ignore = "E203,"
 
 [tool.mypy]

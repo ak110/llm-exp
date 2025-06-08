@@ -1,4 +1,12 @@
-"""AWSのテキスト埋め込みAPI関連の実装。"""
+"""AWSのテキスト埋め込みAPI関連の実装。
+
+Amazon Titan Text Embeddingsや、Cohere Embedモデルなどに対応する
+
+参考:
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-parameters-titan-embed-text.html
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/model-parameters-embed.html
+
+"""
 
 import logging
 import typing

@@ -66,14 +66,20 @@ class EmbeddingRequest(pydantic.BaseModel):
         else:
             return typing.cast(list[str] | list[list[int]], self.input)
 
+    def get_encoding_format(self) -> typing.Literal["float", "base64"]:
+        """エンコード形式を取得する。(型の種類を減らすためのもの)"""
+        if self.encoding_format is NotGiven:
+            return "float"
+        return typing.cast(typing.Literal["float", "base64"], self.encoding_format)
+
 
 def make_embedding_response(
+    request: EmbeddingRequest,
     embedding_list: list[npt.NDArray] | list[list[float]],
-    model: str,
     prompt_tokens: int,
-    encoding_format: typing.Literal["float", "base64"] = "float",
 ) -> openai.types.CreateEmbeddingResponse:
     """テキスト埋め込みAPIのレスポンスを作成して返す。"""
+    encoding_format = request.get_encoding_format()
     return openai.types.CreateEmbeddingResponse(
         data=[
             openai.types.embedding.Embedding.model_construct(
@@ -83,7 +89,7 @@ def make_embedding_response(
             )
             for i, embedding in enumerate(embedding_list)
         ],
-        model=model,
+        model=request.model,
         object="list",
         usage=openai.types.create_embedding_response.Usage(
             prompt_tokens=prompt_tokens, total_tokens=prompt_tokens

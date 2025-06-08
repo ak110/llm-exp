@@ -9,36 +9,7 @@
 - 日付関連の処理は`datetime`を使う
 - ファイル関連の処理は`pathlib`を使う
 - テーブルデータの処理には`polars`を使う (`pandas`は使わない)
-- モジュール追加時は`README.md`も更新する
 
-## テストコード
+## Format/Lint
 
-- テストコードは`pytest`で書く
-- テストコードは`pytilpack/xxx_.py`に対して`tests/xxx_test.py`として配置する
-
-テストコードの例:
-
-```python
-"""テストコード。"""
-
-import pathlib
-
-import pytest
-import pytilpack.xxx_
-
-
-@pytest.mark.parametrize(
-    "x,expected",
-    [
-        ("test1", "test1"),
-        ("test2", "test2"),
-    ],
-)
-def test_yyy(tmp_path: pathlib.Path, x: str, expected: str) -> None:
-    """yyyのテスト。"""
-    actual = pytilpack.xxx_.yyy(tmp_path, x)
-    assert actual == expected
-
-```
-
-- テストコードを書いたら `uv run pytest` でテストを実行する
+- コードを書いたら最後に必ず `make test` を実行する
