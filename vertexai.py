@@ -133,7 +133,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if True:
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
@@ -182,7 +182,7 @@ async def main() -> None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
 
     # ストリーミングモードでのTool Callingテスト2
-    if True:
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
@@ -247,6 +247,16 @@ async def main() -> None:
                     )
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
+
+    if True:
+        response = await client.embeddings(
+            types_embedding.EmbeddingRequest(
+                model="text-multilingual-embedding-002",
+                input=["こんにちは、世界！", "hello, world!"],
+            )
+        )
+        for i, embedding in enumerate(response.data):
+            print(f"Embedding {i}: {embedding.embedding[:5]}...")
 
 
 if __name__ == "__main__":

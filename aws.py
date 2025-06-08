@@ -154,18 +154,6 @@ async def main() -> None:
     client = AWSClient()
     model = "anthropic.claude-3-haiku-20240307-v1:0"
 
-    # 画像生成のテスト
-    if True:
-        response = await client.images_generate(
-            types_image.ImageRequest(
-                model="stability.stable-diffusion-xl-1024-v1-0",
-                prompt="A cute cat sitting on a table",
-                n=1,
-                size="1024x1024",
-            )
-        )
-        print("Image generation response:", response)
-
     # 非ストリーミングモードでのテスト
     if False:
         response = await client.chat(
@@ -183,7 +171,7 @@ async def main() -> None:
         print("Response:", response.choices[0].message.content)
 
     # ストリーミングモードでのTool Callingテスト
-    if True:
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
@@ -232,7 +220,7 @@ async def main() -> None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
 
     # ストリーミングモードでのTool Callingテスト2
-    if True:
+    if False:
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
@@ -297,6 +285,31 @@ async def main() -> None:
                     )
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
+
+    # 画像生成のテスト
+    if False:
+        response = await client.images_generate(
+            types_image.ImageRequest(
+                model="stability.stable-diffusion-xl-1024-v1-0",
+                prompt="A cute cat sitting on a table",
+                n=1,
+                size="1024x1024",
+            )
+        )
+        print("Image generation response:", response)
+
+    # テキスト埋め込みのテスト
+    if False:
+        response = await client.embeddings(
+            types_embedding.EmbeddingRequest(
+                # model="amazon.titan-embed-text-v1",
+                # input=["こんにちは、世界！"],
+                model="cohere.embed-multilingual-v3",
+                input=["こんにちは、世界！", "hello, world!"],
+            )
+        )
+        for i, embedding in enumerate(response.data):
+            print(f"Embedding {i}: {embedding.embedding[:5]}...")
 
 
 if __name__ == "__main__":

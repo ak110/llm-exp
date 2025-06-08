@@ -68,7 +68,7 @@ class EmbeddingRequest(pydantic.BaseModel):
 
     def get_encoding_format(self) -> typing.Literal["float", "base64"]:
         """エンコード形式を取得する。(型の種類を減らすためのもの)"""
-        if self.encoding_format is NotGiven:
+        if isinstance(self.encoding_format, type(NOT_GIVEN)):
             return "float"
         return typing.cast(typing.Literal["float", "base64"], self.encoding_format)
 
