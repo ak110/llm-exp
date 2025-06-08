@@ -1,4 +1,10 @@
-"""VertexAIのテキスト埋め込みAPI関連の実装。"""
+"""VertexAIのテキスト埋め込みAPI関連の実装。
+
+参考:
+
+- https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/text-embeddings-api
+
+"""
 
 import logging
 import typing

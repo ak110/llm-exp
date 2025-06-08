@@ -1,11 +1,16 @@
-"""VertexAIの画像生成API関連の実装。"""
+"""VertexAIの画像生成API関連の実装。
 
+参考:
+- https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/imagen-api
+
+"""
+
+import base64
 import logging
-import typing
+import time
 
 import google.genai.types
 import openai.types
-from openai._types import NOT_GIVEN
 
 import types_image
 
@@ -14,48 +19,28 @@ logger = logging.getLogger(__name__)
 
 def convert_request(
     request: types_image.ImageRequest,
-) -> google.genai.types.GenerateContentConfig:
+) -> google.genai.types.GenerateImagesConfig:
     """OpenAIのリクエストをVertexAIのリクエストに変換。"""
-    generation_config = google.genai.types.GenerateContentConfig()
+    generation_config = google.genai.types.GenerateImagesConfig()
     if isinstance(request.n, int):
-        generation_config.candidate_count = request.n
-    return generation_config, request.prompt
+        generation_config.number_of_images = request.n
+    return generation_config
 
 
 def convert_response(
-    request: types_image.ImageRequest, response: typing.Any
+    request: types_image.ImageRequest,  # pylint: disable=unused-argument
+    response: google.genai.types.GenerateImagesResponse,
 ) -> openai.types.ImagesResponse:
     """VertexAIのレスポンスをOpenAIのレスポンスに変換。"""
     images = []
-    if response.candidates:
-        for candidate in response.candidates:
-            if candidate.content and candidate.content.parts:
-                for part in candidate.content.parts:
-                    if hasattr(part, "inline_data") and part.inline_data:
-                        if request.response_format in ("b64_json", NOT_GIVEN):
-                            images.append(
-                                openai.types.Image(
-                                    b64_json=(
-                                        part.inline_data.data.decode("utf-8")
-                                        if isinstance(part.inline_data.data, bytes)
-                                        else part.inline_data.data
-                                    ),
-                                    revised_prompt=request.prompt,
-                                )
-                            )
-                        else:
-                            data_str = (
-                                part.inline_data.data.decode("utf-8")
-                                if isinstance(part.inline_data.data, bytes)
-                                else part.inline_data.data
-                            )
-                            images.append(
-                                openai.types.Image(
-                                    url=f"data:{part.inline_data.mime_type};base64,{data_str}",
-                                    revised_prompt=request.prompt,
-                                )
-                            )
 
-    return openai.types.ImagesResponse(
-        created=int(response.model_dump().get("created", 0)), data=images
-    )
+    if response.generated_images:
+        for generated_image in response.generated_images:
+            b64_json = None
+            if generated_image.image and generated_image.image.image_bytes:
+                b64_json = base64.b64encode(generated_image.image.image_bytes).decode(
+                    "utf-8"
+                )
+            images.append(openai.types.Image(b64_json=b64_json))
+
+    return openai.types.ImagesResponse(created=int(time.time()), data=images)

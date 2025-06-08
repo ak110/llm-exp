@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """AWSのOpenAI API互換の実装。"""
 
+import argparse
 import asyncio
 import collections.abc
 import json
@@ -149,20 +150,26 @@ class AWSClient:
 
 async def main() -> None:
     """動作確認用コード。"""
+    parser = argparse.ArgumentParser(description="AWSのOpenAI API互換の実装")
+    parser.add_argument(
+        "mode", choices=["chat", "chat-stream", "image", "embedding"], help="実行モード"
+    )
+    args = parser.parse_args()
+    mode = args.mode
+
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
     client = AWSClient()
-    model = "anthropic.claude-3-haiku-20240307-v1:0"
+    chat_model = "anthropic.claude-3-haiku-20240307-v1:0"
 
-    # 非ストリーミングモードでのテスト
-    if False:
+    if mode == "chat":
         response = await client.chat(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "こんにちは！"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=False,
@@ -170,15 +177,14 @@ async def main() -> None:
         )
         print("Response:", response.choices[0].message.content)
 
-    # ストリーミングモードでのTool Callingテスト
-    if False:
+    elif mode == "chat-stream":
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "東京の天気を教えてください"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=True,
@@ -219,96 +225,31 @@ async def main() -> None:
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
 
-    # ストリーミングモードでのTool Callingテスト2
-    if False:
-        stream = client.chat_stream(
-            types_chat.ChatRequest(
-                messages=[
-                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
-                    {"role": "user", "content": "東京の天気を教えてください"},
-                    {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": "tooluse_EpJP3Wr9SIOCe0_Yz2k_OA",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"location": "東京"}',
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "role": "tool",
-                        "tool_call_id": "tooluse_EpJP3Wr9SIOCe0_Yz2k_OA",
-                        "content": "晴れ",
-                    },
-                ],
-                model=model,
-                temperature=0.7,
-                max_completion_tokens=500,
-                stream=True,
-                tools=[
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "get_weather",
-                            "description": "指定された場所の現在の天気を取得する",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "location": {
-                                        "type": "string",
-                                        "description": "天気を知りたい場所（例：東京、大阪）",
-                                    }
-                                },
-                                "required": ["location"],
-                            },
-                        },
-                    }
-                ],
-            )
-        )
-        async for chunk in stream:
-            if len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content is not None:
-                    print("delta.content:", delta.content)
-                if delta.tool_calls is not None:
-                    print(
-                        "delta.tool_calls:",
-                        [
-                            tool_call.model_dump(exclude_none=True)
-                            for tool_call in delta.tool_calls
-                        ],
-                    )
-            if chunk.usage is not None:
-                print("usage:", chunk.usage.model_dump(exclude_none=True))
-
-    # 画像生成のテスト
-    if False:
-        response = await client.images_generate(
+    elif mode == "image":
+        image_response = await client.images_generate(
             types_image.ImageRequest(
-                model="stability.stable-diffusion-xl-1024-v1-0",
+                model="amazon.nova-canvas-v1:0",
                 prompt="A cute cat sitting on a table",
                 n=1,
                 size="1024x1024",
             )
         )
-        print("Image generation response:", response)
+        assert image_response.data is not None
+        for i, image in enumerate(image_response.data):
+            print(f"Image {i}:")
+            if image.url is not None:
+                print("  URL:", image.url)
+            if image.b64_json is not None:
+                print("  Base64 JSON:", image.b64_json[:50] + "...")
 
-    # テキスト埋め込みのテスト
-    if False:
-        response = await client.embeddings(
+    elif mode == "embedding":
+        embedding_response = await client.embeddings(
             types_embedding.EmbeddingRequest(
-                # model="amazon.titan-embed-text-v1",
-                # input=["こんにちは、世界！"],
                 model="cohere.embed-multilingual-v3",
                 input=["こんにちは、世界！", "hello, world!"],
             )
         )
-        for i, embedding in enumerate(response.data):
+        for i, embedding in enumerate(embedding_response.data):
             print(f"Embedding {i}: {embedding.embedding[:5]}...")
 
 

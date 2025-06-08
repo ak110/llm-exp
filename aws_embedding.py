@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 def convert_request(request: types_embedding.EmbeddingRequest) -> dict[str, typing.Any]:
     """OpenAIのリクエストをBedrockのリクエストに変換。"""
+    body: dict[str, typing.Any]
     input_data = request.get_input()
 
     if request.model.startswith("amazon.titan-embed-text"):

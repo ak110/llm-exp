@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """VertexAIのOpenAI API互換の実装。"""
 
+import argparse
 import asyncio
 import collections.abc
 import logging
@@ -85,8 +86,8 @@ class VertexAIClient:
         )
 
         generation_config = vertexai_image.convert_request(request)
-        response = await client.aio.models.generate_content(
-            model=request.model, contents=request.prompt, config=generation_config
+        response = await client.aio.models.generate_images(
+            model=request.model, prompt=request.prompt, config=generation_config
         )
 
         return vertexai_image.convert_response(request, response)
@@ -102,8 +103,11 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
+        input_data = request.get_input()
+        if len(input_data) > 0 and isinstance(input_data[0], list):
+            raise ValueError("Vertex AI Embedding API does not support token arrays.")
         response = await client.aio.models.embed_content(
-            model=request.model, contents=request.get_input()
+            model=request.model, contents=input_data
         )
 
         return vertexai_embedding.convert_response(request, response)
@@ -111,20 +115,26 @@ class VertexAIClient:
 
 async def main() -> None:
     """動作確認用コード。"""
+    parser = argparse.ArgumentParser(description="VertexAIのOpenAI API互換の実装")
+    parser.add_argument(
+        "mode", choices=["chat", "chat-stream", "image", "embedding"], help="実行モード"
+    )
+    args = parser.parse_args()
+    mode = args.mode
+
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
     client = VertexAIClient()
-    model = "gemini-2.5-flash-preview-05-20"
+    chat_model = "gemini-2.5-flash-preview-05-20"
 
-    # 非ストリーミングモードでのテスト
-    if False:
+    if mode == "chat":
         response = await client.chat(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "こんにちは！"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=False,
@@ -132,15 +142,14 @@ async def main() -> None:
         )
         print("Response:", response.choices[0].message.content)
 
-    # ストリーミングモードでのTool Callingテスト
-    if False:
+    elif mode == "chat-stream":
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "東京の天気を教えてください"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=True,
@@ -181,81 +190,30 @@ async def main() -> None:
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
 
-    # ストリーミングモードでのTool Callingテスト2
-    if False:
-        stream = client.chat_stream(
-            types_chat.ChatRequest(
-                messages=[
-                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
-                    {"role": "user", "content": "東京の天気を教えてください"},
-                    {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": "call_qaxHS0I7vEg7aBTahgrq2754",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"location": "東京"}',
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "role": "tool",
-                        "tool_call_id": "call_qaxHS0I7vEg7aBTahgrq2754",
-                        "content": "晴れ",
-                    },
-                ],
-                model=model,
-                temperature=0.7,
-                max_completion_tokens=500,
-                stream=True,
-                tools=[
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "get_weather",
-                            "description": "指定された場所の現在の天気を取得する",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "location": {
-                                        "type": "string",
-                                        "description": "天気を知りたい場所（例：東京、大阪）",
-                                    }
-                                },
-                                "required": ["location"],
-                            },
-                        },
-                    }
-                ],
+    elif mode == "image":
+        image_response = await client.images_generate(
+            types_image.ImageRequest(
+                model="imagen-3.0-fast-generate-001",
+                prompt="A cute cat sitting on a table",
+                n=1,
             )
         )
-        async for chunk in stream:
-            if len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content is not None:
-                    print("delta.content:", delta.content)
-                if delta.tool_calls is not None:
-                    print(
-                        "delta.tool_calls:",
-                        [
-                            tool_call.model_dump(exclude_none=True)
-                            for tool_call in delta.tool_calls
-                        ],
-                    )
-            if chunk.usage is not None:
-                print("usage:", chunk.usage.model_dump(exclude_none=True))
+        assert image_response.data is not None
+        for i, image in enumerate(image_response.data):
+            print(f"Image {i}:")
+            if image.url is not None:
+                print("  URL:", image.url)
+            if image.b64_json is not None:
+                print("  Base64 JSON:", image.b64_json[:50] + "...")
 
-    if True:
-        response = await client.embeddings(
+    elif mode == "embedding":
+        embedding_response = await client.embeddings(
             types_embedding.EmbeddingRequest(
                 model="text-multilingual-embedding-002",
                 input=["こんにちは、世界！", "hello, world!"],
             )
         )
-        for i, embedding in enumerate(response.data):
+        for i, embedding in enumerate(embedding_response.data):
             print(f"Embedding {i}: {embedding.embedding[:5]}...")
 
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """OpenAI API。"""
 
+import argparse
 import asyncio
 import binascii
 import collections.abc
@@ -208,20 +209,26 @@ def _load_pem_certificate(certificate_data: bytes) -> dict:
 
 async def main() -> None:
     """動作確認用コード。"""
+    parser = argparse.ArgumentParser(description="Azure OpenAI API")
+    parser.add_argument(
+        "mode", choices=["chat", "chat-stream", "image", "embedding"], help="実行モード"
+    )
+    args = parser.parse_args()
+    mode = args.mode
+
     logging.basicConfig(format="[%(levelname)s] %(message)s", level=logging.INFO)
 
     client = AzureClient()
-    model = "gpt-4o-mini-2024-07-18"
+    chat_model = "gpt-4o-mini-2024-07-18"
 
-    # 非ストリーミングモードでのテスト
-    if False:
+    if mode == "chat":
         response = await client.chat(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "こんにちは！"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=False,
@@ -229,15 +236,14 @@ async def main() -> None:
         )
         print("Response:", response.choices[0].message.content)
 
-    # ストリーミングモードでのTool Callingテスト
-    if True:
+    elif mode == "chat-stream":
         stream = client.chat_stream(
             types_chat.ChatRequest(
                 messages=[
                     {"role": "system", "content": "あなたは親切なアシスタントです。"},
                     {"role": "user", "content": "東京の天気を教えてください"},
                 ],
-                model=model,
+                model=chat_model,
                 temperature=0.7,
                 max_completion_tokens=500,
                 stream=True,
@@ -278,76 +284,8 @@ async def main() -> None:
             if chunk.usage is not None:
                 print("usage:", chunk.usage.model_dump(exclude_none=True))
 
-    # ストリーミングモードでのTool Callingテスト2
-    if True:
-        stream = client.chat_stream(
-            types_chat.ChatRequest(
-                messages=[
-                    {"role": "system", "content": "あなたは親切なアシスタントです。"},
-                    {"role": "user", "content": "東京の天気を教えてください"},
-                    {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": "call_qaxHS0I7vEg7aBTahgrq2754",
-                                "type": "function",
-                                "function": {
-                                    "name": "get_weather",
-                                    "arguments": '{"location": "東京"}',
-                                },
-                            }
-                        ],
-                    },
-                    {
-                        "role": "tool",
-                        "tool_call_id": "call_qaxHS0I7vEg7aBTahgrq2754",
-                        "content": "晴れ",
-                    },
-                ],
-                model=model,
-                temperature=0.7,
-                max_completion_tokens=500,
-                stream=True,
-                tools=[
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "get_weather",
-                            "description": "指定された場所の現在の天気を取得する",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "location": {
-                                        "type": "string",
-                                        "description": "天気を知りたい場所（例：東京、大阪）",
-                                    }
-                                },
-                                "required": ["location"],
-                            },
-                        },
-                    }
-                ],
-            )
-        )
-        async for chunk in stream:
-            if len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if delta.content is not None:
-                    print("delta.content:", delta.content)
-                if delta.tool_calls is not None:
-                    print(
-                        "delta.tool_calls:",
-                        [
-                            tool_call.model_dump(exclude_none=True)
-                            for tool_call in delta.tool_calls
-                        ],
-                    )
-            if chunk.usage is not None:
-                print("usage:", chunk.usage.model_dump(exclude_none=True))
-
-    # 画像生成APIのテスト
-    if True:
-        response = await client.images(
+    elif mode == "image":
+        image_response = await client.images(
             types_image.ImageRequest(
                 model="dall-e-3",
                 prompt="赤いバラの花束",
@@ -357,21 +295,24 @@ async def main() -> None:
                 style="natural",
             )
         )
-        assert response.data is not None
-        print("Image URL:", response.data[0].url)
+        assert image_response.data is not None
+        for i, image in enumerate(image_response.data):
+            print(f"Image {i}:")
+            if image.url is not None:
+                print("  URL:", image.url)
+            if image.b64_json is not None:
+                print("  Base64 JSON:", image.b64_json[:50] + "...")
 
-    # Embedding APIのテスト
-    if True:
+    elif mode == "embedding":
         embedding_response = await client.embeddings(
             types_embedding.EmbeddingRequest(
                 model="text-embedding-ada-002",
-                input="これは埋め込みのテストです。",
+                input=["こんにちは、世界！", "hello, world!"],
                 encoding_format="float",
             )
         )
-        print(
-            "Embedding:", embedding_response.data[0].embedding[:5]
-        )  # 最初の5要素のみ表示
+        for i, embedding in enumerate(embedding_response.data):
+            print(f"Embedding {i}: {embedding.embedding[:5]}...")
 
 
 if __name__ == "__main__":
