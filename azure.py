@@ -14,11 +14,10 @@ import cryptography.x509
 import msal
 import openai
 import openai.types.chat
-import openai.types.embedding
-import openai.types.image
 from openai._types import NOT_GIVEN
 
 import config
+import errors
 import types_chat
 import types_embedding
 import types_image
@@ -38,43 +37,46 @@ class AzureClient:
         """OpenAIのChat Completions API互換API。"""
         assert not request.stream
 
-        async with openai.AsyncAzureOpenAI(
-            azure_endpoint="https://privchat-eu.openai.azure.com",
-            api_version="2025-01-01-preview",
-            azure_ad_token=acquire_access_token(
-                ["https://cognitiveservices.azure.com/.default"]
-            ),
-        ) as client:
-            return await client.chat.completions.create(
-                model=request.model,
-                messages=request.messages,
-                stream=False,
-                audio=request.audio,
-                frequency_penalty=request.frequency_penalty,
-                logit_bias=request.logit_bias,
-                logprobs=request.logprobs,
-                max_completion_tokens=request.max_completion_tokens,
-                metadata=request.metadata,
-                modalities=request.modalities,
-                n=request.n,
-                parallel_tool_calls=request.parallel_tool_calls,
-                prediction=request.prediction,
-                presence_penalty=request.presence_penalty,
-                reasoning_effort=request.reasoning_effort,
-                response_format=request.response_format,
-                seed=request.seed,
-                service_tier=request.service_tier,
-                stop=request.stop,
-                store=request.store,
-                # stream_options=request.stream_options,
-                temperature=request.temperature,
-                tool_choice=request.tool_choice,
-                tools=request.tools,
-                top_logprobs=request.top_logprobs,
-                top_p=request.top_p,
-                user=request.user,
-                web_search_options=request.web_search_options,
-            )
+        try:
+            async with openai.AsyncAzureOpenAI(
+                azure_endpoint="https://privchat-eu.openai.azure.com",
+                api_version="2025-01-01-preview",
+                azure_ad_token=acquire_access_token(
+                    ["https://cognitiveservices.azure.com/.default"]
+                ),
+            ) as client:
+                return await client.chat.completions.create(
+                    model=request.model,
+                    messages=request.messages,
+                    stream=False,
+                    audio=request.audio,
+                    frequency_penalty=request.frequency_penalty,
+                    logit_bias=request.logit_bias,
+                    logprobs=request.logprobs,
+                    max_completion_tokens=request.max_completion_tokens,
+                    metadata=request.metadata,
+                    modalities=request.modalities,
+                    n=request.n,
+                    parallel_tool_calls=request.parallel_tool_calls,
+                    prediction=request.prediction,
+                    presence_penalty=request.presence_penalty,
+                    reasoning_effort=request.reasoning_effort,
+                    response_format=request.response_format,
+                    seed=request.seed,
+                    service_tier=request.service_tier,
+                    stop=request.stop,
+                    store=request.store,
+                    # stream_options=request.stream_options,
+                    temperature=request.temperature,
+                    tool_choice=request.tool_choice,
+                    tools=request.tools,
+                    top_logprobs=request.top_logprobs,
+                    top_p=request.top_p,
+                    user=request.user,
+                    web_search_options=request.web_search_options,
+                )
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -84,90 +86,99 @@ class AzureClient:
         if request.stream_options is NOT_GIVEN:
             request.stream_options = {"include_usage": True}
 
-        async with openai.AsyncAzureOpenAI(
-            azure_endpoint="https://privchat-eu.openai.azure.com",
-            api_version="2025-01-01-preview",
-            azure_ad_token=acquire_access_token(
-                ["https://cognitiveservices.azure.com/.default"]
-            ),
-        ) as client:
-            stream = await client.chat.completions.create(
-                model=request.model,
-                messages=request.messages,
-                stream=True,
-                audio=request.audio,
-                frequency_penalty=request.frequency_penalty,
-                logit_bias=request.logit_bias,
-                logprobs=request.logprobs,
-                max_completion_tokens=request.max_completion_tokens,
-                metadata=request.metadata,
-                modalities=request.modalities,
-                n=request.n,
-                parallel_tool_calls=request.parallel_tool_calls,
-                prediction=request.prediction,
-                presence_penalty=request.presence_penalty,
-                reasoning_effort=request.reasoning_effort,
-                response_format=request.response_format,
-                seed=request.seed,
-                service_tier=request.service_tier,
-                stop=request.stop,
-                store=request.store,
-                stream_options=request.stream_options,
-                temperature=request.temperature,
-                tool_choice=request.tool_choice,
-                tools=request.tools,
-                top_logprobs=request.top_logprobs,
-                top_p=request.top_p,
-                user=request.user,
-                web_search_options=request.web_search_options,
-            )
-            async for chunk in stream:
-                yield chunk
+        try:
+            async with openai.AsyncAzureOpenAI(
+                azure_endpoint="https://privchat-eu.openai.azure.com",
+                api_version="2025-01-01-preview",
+                azure_ad_token=acquire_access_token(
+                    ["https://cognitiveservices.azure.com/.default"]
+                ),
+            ) as client:
+                stream = await client.chat.completions.create(
+                    model=request.model,
+                    messages=request.messages,
+                    stream=True,
+                    audio=request.audio,
+                    frequency_penalty=request.frequency_penalty,
+                    logit_bias=request.logit_bias,
+                    logprobs=request.logprobs,
+                    max_completion_tokens=request.max_completion_tokens,
+                    metadata=request.metadata,
+                    modalities=request.modalities,
+                    n=request.n,
+                    parallel_tool_calls=request.parallel_tool_calls,
+                    prediction=request.prediction,
+                    presence_penalty=request.presence_penalty,
+                    reasoning_effort=request.reasoning_effort,
+                    response_format=request.response_format,
+                    seed=request.seed,
+                    service_tier=request.service_tier,
+                    stop=request.stop,
+                    store=request.store,
+                    stream_options=request.stream_options,
+                    temperature=request.temperature,
+                    tool_choice=request.tool_choice,
+                    tools=request.tools,
+                    top_logprobs=request.top_logprobs,
+                    top_p=request.top_p,
+                    user=request.user,
+                    web_search_options=request.web_search_options,
+                )
+                async for chunk in stream:
+                    yield chunk
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def images(
         self, request: types_image.ImageRequest
     ) -> openai.types.ImagesResponse:
         """OpenAIのImage Generation API互換API。"""
-        async with openai.AsyncAzureOpenAI(
-            azure_endpoint="https://privchat-eu.openai.azure.com",
-            api_version="2025-01-01-preview",
-            azure_ad_token=acquire_access_token(
-                ["https://cognitiveservices.azure.com/.default"]
-            ),
-        ) as client:
-            return await client.images.generate(
-                prompt=request.prompt,
-                background=request.background,
-                model=request.model,
-                moderation=request.moderation,
-                n=request.n,
-                output_compression=request.output_compression,
-                output_format=request.output_format,
-                quality=request.quality,
-                response_format=request.response_format,
-                size=request.size,
-                style=request.style,
-                user=request.user,
-            )
+        try:
+            async with openai.AsyncAzureOpenAI(
+                azure_endpoint="https://privchat-eu.openai.azure.com",
+                api_version="2025-01-01-preview",
+                azure_ad_token=acquire_access_token(
+                    ["https://cognitiveservices.azure.com/.default"]
+                ),
+            ) as client:
+                return await client.images.generate(
+                    prompt=request.prompt,
+                    background=request.background,
+                    model=request.model,
+                    moderation=request.moderation,
+                    n=request.n,
+                    output_compression=request.output_compression,
+                    output_format=request.output_format,
+                    quality=request.quality,
+                    response_format=request.response_format,
+                    size=request.size,
+                    style=request.style,
+                    user=request.user,
+                )
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def embeddings(
         self, request: types_embedding.EmbeddingRequest
     ) -> openai.types.CreateEmbeddingResponse:
         """OpenAIのEmbedding API互換API。"""
-        async with openai.AsyncAzureOpenAI(
-            azure_endpoint="https://privchat-eu.openai.azure.com",
-            api_version="2025-01-01-preview",
-            azure_ad_token=acquire_access_token(
-                ["https://cognitiveservices.azure.com/.default"]
-            ),
-        ) as client:
-            return await client.embeddings.create(
-                input=request.input,
-                model=request.model,
-                dimensions=request.dimensions,
-                encoding_format=request.encoding_format,
-                user=request.user,
-            )
+        try:
+            async with openai.AsyncAzureOpenAI(
+                azure_endpoint="https://privchat-eu.openai.azure.com",
+                api_version="2025-01-01-preview",
+                azure_ad_token=acquire_access_token(
+                    ["https://cognitiveservices.azure.com/.default"]
+                ),
+            ) as client:
+                return await client.embeddings.create(
+                    input=request.input,
+                    model=request.model,
+                    dimensions=request.dimensions,
+                    encoding_format=request.encoding_format,
+                    user=request.user,
+                )
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
 
 def acquire_access_token(scopes: list[str]) -> str:

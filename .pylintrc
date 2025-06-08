@@ -20,4 +20,4 @@ disable=
     using-constant-test,
 
 [FORMAT]
-max-line-length=128
+max-line-length=256

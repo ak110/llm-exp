@@ -53,7 +53,8 @@ def convert_response(
     """VertexAIのレスポンスをOpenAIのレスポンスに変換。"""
     if response.generated_images is None:
         raise ValueError(
-            f"No images were generated in the response. Check the request parameters. {response.positive_prompt_safety_attributes}"
+            "No images were generated in the response."
+            f" Check the request parameters. {response.positive_prompt_safety_attributes}"
         )
 
     data: list[openai.types.Image] = []

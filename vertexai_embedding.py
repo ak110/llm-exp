@@ -9,15 +9,35 @@
 import logging
 import typing
 
+import google.genai.types
 import openai.types
+from openai._types import NotGiven
 
 import types_embedding
 
 logger = logging.getLogger(__name__)
 
 
+def convert_request(
+    request: types_embedding.EmbeddingRequest,
+) -> tuple[google.genai.types.EmbedContentConfig, google.genai.types.ContentListUnion]:
+    """OpenAIのリクエストをVertexAIのリクエストに変換。"""
+    contents = request.get_input()
+    if len(contents) > 0 and isinstance(contents[0], list):
+        raise ValueError("Vertex AI Embedding API does not support token arrays.")
+
+    config = google.genai.types.EmbedContentConfig()
+    if not isinstance(request.dimensions, NotGiven):
+        config.output_dimensionality = request.dimensions
+
+    config.auto_truncate = True
+
+    return config, typing.cast(google.genai.types.ContentListUnion, contents)
+
+
 def convert_response(
-    request: types_embedding.EmbeddingRequest, response: typing.Any
+    request: types_embedding.EmbeddingRequest,
+    response: google.genai.types.EmbedContentResponse,
 ) -> openai.types.CreateEmbeddingResponse:
     """VertexAIのレスポンスをOpenAIのレスポンスに変換。"""
     embeddings_list = []

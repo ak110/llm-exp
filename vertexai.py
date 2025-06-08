@@ -10,6 +10,7 @@ import google.genai
 import openai.types.chat
 
 import config
+import errors
 import types_chat
 import types_embedding
 import types_image
@@ -40,14 +41,20 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        generation_config, formatted_messages = vertexai_chat_request.convert_request(
-            request
-        )
-        response = await client.aio.models.generate_content(
-            model=request.model, contents=formatted_messages, config=generation_config
-        )
-
-        return vertexai_chat_response.process_non_streaming_response(request, response)
+        try:
+            generation_config, formatted_messages = (
+                vertexai_chat_request.convert_request(request)
+            )
+            response = await client.aio.models.generate_content(
+                model=request.model,
+                contents=formatted_messages,
+                config=generation_config,
+            )
+            return vertexai_chat_response.process_non_streaming_response(
+                request, response
+            )
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -62,17 +69,23 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        generation_config, formatted_messages = vertexai_chat_request.convert_request(
-            request
-        )
-        stream = await client.aio.models.generate_content_stream(
-            model=request.model, contents=formatted_messages, config=generation_config
-        )
-
-        async for response_chunk in stream:
-            chunk = vertexai_chat_response.process_stream_chunk(request, response_chunk)
-            if chunk is not None:
-                yield chunk
+        try:
+            generation_config, formatted_messages = (
+                vertexai_chat_request.convert_request(request)
+            )
+            stream = await client.aio.models.generate_content_stream(
+                model=request.model,
+                contents=formatted_messages,
+                config=generation_config,
+            )
+            async for response_chunk in stream:
+                chunk = vertexai_chat_response.process_stream_chunk(
+                    request, response_chunk
+                )
+                if chunk is not None:
+                    yield chunk
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def images_generate(
         self, request: types_image.ImageRequest
@@ -85,12 +98,14 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        generation_config = vertexai_image.convert_request(request)
-        response = await client.aio.models.generate_images(
-            model=request.model, prompt=request.prompt, config=generation_config
-        )
-
-        return vertexai_image.convert_response(request, response)
+        try:
+            generation_config = vertexai_image.convert_request(request)
+            response = await client.aio.models.generate_images(
+                model=request.model, prompt=request.prompt, config=generation_config
+            )
+            return vertexai_image.convert_response(request, response)
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
     async def embeddings(
         self, request: types_embedding.EmbeddingRequest
@@ -103,14 +118,14 @@ class VertexAIClient:
             http_options=google.genai.types.HttpOptions(api_version="v1"),
         )
 
-        input_data = request.get_input()
-        if len(input_data) > 0 and isinstance(input_data[0], list):
-            raise ValueError("Vertex AI Embedding API does not support token arrays.")
-        response = await client.aio.models.embed_content(
-            model=request.model, contents=input_data
-        )
-
-        return vertexai_embedding.convert_response(request, response)
+        try:
+            embed_config, contents = vertexai_embedding.convert_request(request)
+            response = await client.aio.models.embed_content(
+                model=request.model, contents=contents, config=embed_config
+            )
+            return vertexai_embedding.convert_response(request, response)
+        except Exception as e:
+            raise errors.map_exception(e) from e
 
 
 async def main() -> None:
@@ -220,4 +235,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    asyncio.run(main())
     asyncio.run(main())

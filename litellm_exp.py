@@ -42,6 +42,10 @@ def _main():
     print(f"InputCost+OutputCost: {input_cost + output_cost:.9f}")
     print(f"TotalCost: {total_cost:.9f}")
 
+    a = False
+    if a:
+        litellm.completion("")
+
 
 if __name__ == "__main__":
     _main()

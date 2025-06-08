@@ -19,6 +19,7 @@ import aws_chat_response
 import aws_embedding
 import aws_image
 import config
+import errors
 import types_chat
 import types_embedding
 import types_image
@@ -61,8 +62,13 @@ class AWSClient:
             bedrock = typing.cast(
                 types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
             )
-            response = await bedrock.converse(**kwargs)
-            return aws_chat_response.process_non_streaming_response(request, response)
+            try:
+                response = await bedrock.converse(**kwargs)
+                return aws_chat_response.process_non_streaming_response(
+                    request, response
+                )
+            except Exception as e:
+                raise errors.map_exception(e) from e
 
     async def chat_stream(
         self, request: types_chat.ChatRequest
@@ -77,11 +83,14 @@ class AWSClient:
             bedrock = typing.cast(
                 types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
             )
-            response = await bedrock.converse_stream(**kwargs)
-            async for event in response["stream"]:
-                chunk = aws_chat_response.process_stream_event(request, event)
-                if chunk is not None:
-                    yield chunk
+            try:
+                response = await bedrock.converse_stream(**kwargs)
+                async for event in response["stream"]:
+                    chunk = aws_chat_response.process_stream_event(request, event)
+                    if chunk is not None:
+                        yield chunk
+            except Exception as e:
+                raise errors.map_exception(e) from e
 
     async def images_generate(
         self, request: types_image.ImageRequest
@@ -95,10 +104,13 @@ class AWSClient:
             bedrock = typing.cast(
                 types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
             )
-            response_body = await self._invoke_model(
-                bedrock, request.model, request_body
-            )
-            return aws_image.convert_response(request, response_body)
+            try:
+                response_body = await self._invoke_model(
+                    bedrock, request.model, request_body
+                )
+                return aws_image.convert_response(request, response_body)
+            except Exception as e:
+                raise errors.map_exception(e) from e
 
     async def embeddings(
         self, request: types_embedding.EmbeddingRequest
@@ -112,10 +124,13 @@ class AWSClient:
             bedrock = typing.cast(
                 types_aiobotocore_bedrock_runtime.client.BedrockRuntimeClient, bedrock
             )
-            response_body = await self._invoke_model(
-                bedrock, request.model, request_body
-            )
-            return aws_embedding.convert_response(request, response_body)
+            try:
+                response_body = await self._invoke_model(
+                    bedrock, request.model, request_body
+                )
+                return aws_embedding.convert_response(request, response_body)
+            except Exception as e:
+                raise errors.map_exception(e) from e
 
     async def _invoke_model(
         self,
