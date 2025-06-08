@@ -10,6 +10,7 @@ Stable DiffusionやNova Canvasなどに対応する。
 
 import logging
 import random
+import time
 import typing
 
 import openai.types
@@ -76,24 +77,22 @@ def convert_response(
     request: types_image.ImageRequest, response_body: dict[str, typing.Any]
 ) -> openai.types.ImagesResponse:
     """BedrockのレスポンスをOpenAIのレスポンスに変換。"""
-    import time
-
-    images = []
+    data: list[openai.types.Image] = []
 
     if request.model.startswith("stability."):
         # Stable Diffusion
         artifacts = response_body.get("artifacts", [])
         for artifact in artifacts:
             b64_json = artifact.get("base64", "")
-            images.append(openai.types.Image(b64_json=b64_json))
+            data.append(openai.types.Image(b64_json=b64_json))
 
     elif request.model.startswith("amazon.nova-canvas"):
         # Amazon Nova Canvas
         image_data_list = response_body.get("images", [])
         for image_data in image_data_list:
-            images.append(openai.types.Image(b64_json=image_data))
+            data.append(openai.types.Image(b64_json=image_data))
 
     else:
         raise ValueError(f"Unsupported model: {request.model}")
 
-    return openai.types.ImagesResponse(created=int(time.time()), data=images)
+    return openai.types.ImagesResponse(created=int(time.time()), data=data)

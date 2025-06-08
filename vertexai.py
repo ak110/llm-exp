@@ -193,8 +193,10 @@ async def main() -> None:
     elif mode == "image":
         image_response = await client.images_generate(
             types_image.ImageRequest(
+                # model="imagen-3.0-generate-002",
                 model="imagen-3.0-fast-generate-001",
-                prompt="A cute cat sitting on a table",
+                # prompt="A cute cat sitting on a table",
+                prompt="どら焼き",
                 n=1,
             )
         )
