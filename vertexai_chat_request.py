@@ -167,6 +167,24 @@ def _make_generation_config(
             "web_search_options is not supported in Vertex AI implementation"
         )
 
+    generation_config.safety_settings = [
+        google.genai.types.SafetySetting(
+            category=google.genai.types.HarmCategory.HARM_CATEGORY_HARASSMENT,
+            threshold=google.genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        ),
+        google.genai.types.SafetySetting(
+            category=google.genai.types.HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+            threshold=google.genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        ),
+        google.genai.types.SafetySetting(
+            category=google.genai.types.HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+            threshold=google.genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        ),
+        google.genai.types.SafetySetting(
+            category=google.genai.types.HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+            threshold=google.genai.types.HarmBlockThreshold.BLOCK_ONLY_HIGH,
+        ),
+    ]
     return generation_config
 
 

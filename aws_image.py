@@ -3,17 +3,17 @@
 Stable DiffusionやNova Canvasなどに対応する。
 
 参考:
-- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/
-  bedrock-runtime_example_bedrock-runtime_InvokeModel_StableDiffusion_section.html
-- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/
-  bedrock-runtime_example_bedrock-runtime_InvokeModel_AmazonNovaImageGeneration_section.html
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/bedrock-runtime_example_bedrock-runtime_InvokeModel_StableDiffusion_section.html
+- https://docs.aws.amazon.com/ja_jp/bedrock/latest/userguide/bedrock-runtime_example_bedrock-runtime_InvokeModel_AmazonNovaImageGeneration_section.html
 
 """
 
 import logging
+import random
 import typing
 
 import openai.types
+from openai._types import NotGiven
 
 import types_image
 
@@ -22,9 +22,7 @@ logger = logging.getLogger(__name__)
 
 def convert_request(request: types_image.ImageRequest) -> dict[str, typing.Any]:
     """OpenAIのリクエストをBedrockのリクエストに変換。"""
-    import random
-
-    from openai._types import NOT_GIVEN
+    body: dict[str, typing.Any]
 
     if request.model.startswith("stability."):
         # Stable Diffusion
@@ -33,12 +31,12 @@ def convert_request(request: types_image.ImageRequest) -> dict[str, typing.Any]:
             "seed": random.randint(0, 2**32 - 1),
         }
 
-        if request.size != NOT_GIVEN:
+        if not isinstance(request.size, NotGiven):
             width, height = map(int, str(request.size).split("x"))
             body["width"] = width
             body["height"] = height
 
-        if request.style != NOT_GIVEN:
+        if not isinstance(request.style, NotGiven):
             style_map = {"vivid": "photographic", "natural": "digital-art"}
             body["style_preset"] = style_map.get(str(request.style), "photographic")
 
@@ -52,12 +50,12 @@ def convert_request(request: types_image.ImageRequest) -> dict[str, typing.Any]:
             "imageGenerationConfig": {
                 "seed": random.randint(0, 858993459),
                 "quality": "standard",
-                "numberOfImages": 1 if request.n == NOT_GIVEN else request.n,
+                "numberOfImages": 1 if isinstance(request.n, NotGiven) else request.n,
             },
         }
 
         config = typing.cast(dict[str, typing.Any], body["imageGenerationConfig"])
-        if request.size != NOT_GIVEN:
+        if not isinstance(request.size, NotGiven):
             width, height = map(int, str(request.size).split("x"))
             config["width"] = width
             config["height"] = height
@@ -65,7 +63,7 @@ def convert_request(request: types_image.ImageRequest) -> dict[str, typing.Any]:
             config["width"] = 1024
             config["height"] = 1024
 
-        if request.quality != NOT_GIVEN:
+        if not isinstance(request.quality, NotGiven):
             config["quality"] = str(request.quality)
 
         return body

@@ -22,8 +22,13 @@ def convert_request(
 ) -> google.genai.types.GenerateImagesConfig:
     """OpenAIのリクエストをVertexAIのリクエストに変換。"""
     generation_config = google.genai.types.GenerateImagesConfig()
+
     if isinstance(request.n, int):
         generation_config.number_of_images = request.n
+
+    generation_config.safety_filter_level = (
+        google.genai.types.SafetyFilterLevel.BLOCK_ONLY_HIGH
+    )
     return generation_config
 
 
