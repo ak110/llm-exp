@@ -65,25 +65,19 @@ def _make_inference_config(
     """推論設定を作成。"""
     # 未サポートのパラメータをチェック
     if not isinstance(request.response_format, NotGiven):
-        logger.warning("response_format is not supported in AWS Bedrock implementation")
+        logger.warning("response_formatはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.seed, NotGiven):
-        logger.warning("seed is not supported in AWS Bedrock implementation")
+        logger.warning("seedはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.web_search_options, NotGiven):
-        logger.warning(
-            "web_search_options is not supported in AWS Bedrock implementation"
-        )
+        logger.warning("web_search_optionsはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.presence_penalty, NotGiven):
-        logger.warning(
-            "presence_penalty is not supported in AWS Bedrock implementation"
-        )
+        logger.warning("presence_penaltyはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.frequency_penalty, NotGiven):
-        logger.warning(
-            "frequency_penalty is not supported in AWS Bedrock implementation"
-        )
+        logger.warning("frequency_penaltyはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.logprobs, NotGiven):
-        logger.warning("logprobs is not supported in AWS Bedrock implementation")
+        logger.warning("logprobsはAWS Bedrock実装ではサポートされていません")
     if not isinstance(request.top_logprobs, NotGiven):
-        logger.warning("top_logprobs is not supported in AWS Bedrock implementation")
+        logger.warning("top_logprobsはAWS Bedrock実装ではサポートされていません")
 
     inference_config: bedrock_types.InferenceConfigurationTypeDef = {}
     if (
@@ -221,9 +215,7 @@ def _to_bedrock_userassistant_message(
     # audio
     audio = message.get("audio")
     if audio is not None:
-        logger.warning(
-            f"Audio content is not supported in this implementation. {audio=}"
-        )
+        logger.warning(f"音声コンテンツはこの実装ではサポートされていません。 {audio=}")
 
     # tool_calls
     tool_calls = message.get("tool_calls")

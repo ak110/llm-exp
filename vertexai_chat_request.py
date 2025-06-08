@@ -34,15 +34,13 @@ def _make_generation_config(
     generation_config = google.genai.types.GenerateContentConfig()
 
     if not isinstance(request.audio, NotGiven):
-        logger.warning("audio parameter is not supported in Vertex AI implementation")
+        logger.warning("audioパラメータはVertex AI実装ではサポートされていません")
 
     if not isinstance(request.frequency_penalty, NotGiven):
         generation_config.frequency_penalty = request.frequency_penalty
 
     if not isinstance(request.logit_bias, NotGiven):
-        logger.warning(
-            "logit_bias parameter is not supported in Vertex AI implementation"
-        )
+        logger.warning("logit_biasパラメータはVertex AI実装ではサポートされていません")
 
     if not isinstance(request.logprobs, NotGiven):
         generation_config.logprobs = request.logprobs
@@ -53,16 +51,14 @@ def _make_generation_config(
     # metadataは生成設定には影響しない
 
     if not isinstance(request.modalities, NotGiven):
-        logger.warning(
-            "modalities parameter is not supported in Vertex AI implementation"
-        )
+        logger.warning("modalitiesパラメータはVertex AI実装ではサポートされていません")
 
     if not isinstance(request.n, NotGiven):
         generation_config.candidate_count = request.n
 
     if not isinstance(request.parallel_tool_calls, NotGiven):
         logger.warning(
-            "parallel_tool_calls parameter is not supported in Vertex AI implementation"
+            "parallel_tool_callsパラメータはVertex AI実装ではサポートされていません"
         )
 
     # predictionは生成設定には影響しない
@@ -72,7 +68,7 @@ def _make_generation_config(
 
     if not isinstance(request.reasoning_effort, NotGiven):
         logger.warning(
-            "reasoning_effort parameter is not supported in Vertex AI implementation"
+            "reasoning_effortパラメータはVertex AI実装ではサポートされていません"
         )
 
     if not isinstance(request.response_format, NotGiven):
@@ -83,8 +79,8 @@ def _make_generation_config(
             generation_config.response_schema = request.response_format["json_schema"]  # type: ignore
         else:
             logger.warning(
-                f"Unsupported response format type: {response_format_type}. "
-                "Defaulting to text response."
+                f"サポートされていないレスポンスフォーマットタイプです: {response_format_type}。"
+                "テキストレスポンスにデフォルトで戻します。"
             )
 
     if not isinstance(request.seed, NotGiven):
@@ -170,9 +166,7 @@ def _make_generation_config(
     # userは生成設定には影響しない
 
     if not isinstance(request.web_search_options, NotGiven):
-        logger.warning(
-            "web_search_options is not supported in Vertex AI implementation"
-        )
+        logger.warning("web_search_optionsはVertex AI実装ではサポートされていません")
 
     generation_config.safety_settings = [
         google.genai.types.SafetySetting(
@@ -217,8 +211,8 @@ def _format_messages(
                     )
                 else:
                     logger.warning(
-                        f"System message content is not a string: {system_content=}. "
-                        "Skipping system message."
+                        f"システムメッセージの内容が文字列ではありません: {system_content=}。"
+                        "システムメッセージをスキップします。"
                     )
         elif role in ("user", "assistant"):
             # ユーザーとアシスタントのメッセージを変換
@@ -330,8 +324,8 @@ def _format_messages(
                     )
                 else:
                     logger.warning(
-                        f"Tool message content is not a string: {content=}. "
-                        "Skipping tool message."
+                        f"ツールメッセージの内容が文字列ではありません: {content=}。"
+                        "ツールメッセージをスキップします。"
                     )
 
                 # FunctionResponseとしてPartsに追加
